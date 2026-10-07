@@ -1,0 +1,16 @@
+# Python's compiled cache files
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+.venv/
+
+# Secrets: database password, secret key, email password
+.env
+
+# Test and editor leftovers
+.pytest_cache/
+.vscode/
+.idea/
+*.log
