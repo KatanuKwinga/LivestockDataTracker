@@ -23,6 +23,9 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     bcrypt.init_app(app)
 
+    # Import the models so SQLAlchemy and Flask-Migrate know the tables exist.
+    from app import models  
+
     @app.route("/health")
     def health():
         #Quick check that the app is running and can reach the database.
