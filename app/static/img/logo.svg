@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Livestock Tracker logo">
+  <!-- Blue rounded square: the brand colour -->
+  <rect width="64" height="64" rx="14" fill="#1565C0"/>
+  <!-- White barn: the walls, with the pointed roof -->
+  <path d="M12 30 L32 14 L52 30 V50 H12 Z" fill="#FFFFFF"/>
+  <!-- Yellow barn door with a blue cross-brace -->
+  <rect x="25" y="33" width="14" height="17" fill="#F9A825"/>
+  <path d="M25 33 L39 50 M39 33 L25 50" stroke="#1565C0" stroke-width="2"/>
+  <!-- Green strip of grass -->
+  <rect x="8" y="50" width="48" height="4" rx="2" fill="#2E7D32"/>
+</svg>

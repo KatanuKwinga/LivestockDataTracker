@@ -1,0 +1,74 @@
+/* Livestock Tracker colour scheme.
+   Each colour has a job, so colour carries meaning across the whole app:
+     blue   = the brand and main actions (navigation bar, main buttons, links)
+     green  = success / healthy
+     yellow = attention / warnings (only as a background with dark text:
+              yellow TEXT on white is too hard to read)
+     red    = errors / critical / delete
+   Change a shade here and every page follows. */
+
+:root {
+  /* Our palette */
+  --lt-blue: #1565C0;
+  --lt-blue-dark: #0D47A1;
+  --lt-blue-light: #E3EEFB;
+  --lt-green: #2E7D32;
+  --lt-green-dark: #1B5E20;
+  --lt-yellow: #F9A825;
+  --lt-red: #C62828;
+  --lt-page: #F4F7FB;     /* soft blue-grey page background */
+  --lt-text: #1F2937;
+
+  /* Tell Bootstrap to use our palette. Bootstrap reads these variables for
+     classes like bg-primary, text-success, alert-warning and so on.
+     The "-rgb" versions are the same colours written as red, green, blue
+     numbers, which Bootstrap needs for its see-through shades. */
+  --bs-primary: var(--lt-blue);
+  --bs-primary-rgb: 21, 101, 192;
+  --bs-success: var(--lt-green);
+  --bs-success-rgb: 46, 125, 50;
+  --bs-warning: var(--lt-yellow);
+  --bs-warning-rgb: 249, 168, 37;
+  --bs-danger: var(--lt-red);
+  --bs-danger-rgb: 198, 40, 40;
+  --bs-body-bg: var(--lt-page);
+  --bs-body-color: var(--lt-text);
+  --bs-link-color-rgb: 21, 101, 192;
+  --bs-link-hover-color-rgb: 13, 71, 161;
+}
+
+/* Bootstrap's buttons have their own colour settings, so they're
+   pointed at our palette separately. */
+.btn-primary {
+  --bs-btn-bg: var(--lt-blue);
+  --bs-btn-border-color: var(--lt-blue);
+  --bs-btn-hover-bg: var(--lt-blue-dark);
+  --bs-btn-hover-border-color: var(--lt-blue-dark);
+  --bs-btn-active-bg: var(--lt-blue-dark);
+  --bs-btn-active-border-color: var(--lt-blue-dark);
+  --bs-btn-disabled-bg: var(--lt-blue);
+  --bs-btn-disabled-border-color: var(--lt-blue);
+}
+.btn-success {
+  --bs-btn-bg: var(--lt-green);
+  --bs-btn-border-color: var(--lt-green);
+  --bs-btn-hover-bg: var(--lt-green-dark);
+  --bs-btn-hover-border-color: var(--lt-green-dark);
+  --bs-btn-active-bg: var(--lt-green-dark);
+  --bs-btn-active-border-color: var(--lt-green-dark);
+}
+
+/* The glow around a text box you're typing in: our blue instead of Bootstrap's. */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--lt-blue);
+  box-shadow: 0 0 0 .25rem rgba(21, 101, 192, .2);
+}
+
+/* Logo in the navigation bar: a white outline so the blue logo stands out
+   on the blue bar. */
+.brand-logo { width: 36px; height: 36px; border: 2px solid #fff; border-radius: 12px; }
+
+/* Login / register cards (wireframe 2): centred, not too wide, blue top edge. */
+.auth-logo { width: 64px; height: 64px; }
+.auth-card { max-width: 440px; margin: 0 auto; border: 0; border-top: 4px solid var(--lt-blue); }

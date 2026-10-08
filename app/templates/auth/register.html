@@ -3,27 +3,25 @@
 {% block title %}Create a farmer account{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-7 col-lg-5">
-    <div class="card shadow-sm">
-      <div class="card-body p-4">
-        <h1 class="h4 mb-1">Create a farmer account</h1>
-        <p class="text-secondary small mb-4">Workers don't sign up here. A farmer adds them after logging in.</p>
-
-        {# novalidate turns off the browser's own pop-up checks, so every error
-           comes from our server-side rules and looks the same. #}
-        <form method="post" novalidate>
-          {# The hidden CSRF token. Without it, the form is rejected. #}
-          {{ form.hidden_tag() }}
-          {{ render_field(form.name, autocomplete="name") }}
-          {{ render_field(form.email, type="email", autocomplete="email") }}
-          {{ render_field(form.phone, type="tel", autocomplete="tel") }}
-          {{ render_field(form.password, autocomplete="new-password") }}
-          {{ render_field(form.confirm_password, autocomplete="new-password") }}
-          {{ form.submit(class="btn btn-success w-100") }}
-        </form>
-      </div>
+{# Same card style as the login wireframe: logo on top, centred, blue top edge. #}
+<div class="card auth-card shadow-sm">
+  <div class="card-body p-4 p-md-5">
+    <div class="text-center mb-4">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Livestock Tracker logo" class="auth-logo mb-3">
+      <h1 class="h4 mb-1">Create a farmer account</h1>
+      <p class="text-secondary small mb-0">Workers don't sign up here. A farmer adds them after logging in.</p>
     </div>
+
+    {# novalidate: every error comes from our server-side rules. #}
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+      {{ render_field(form.name, autocomplete="name") }}
+      {{ render_field(form.email, type="email", autocomplete="email") }}
+      {{ render_field(form.phone, type="tel", autocomplete="tel") }}
+      {{ render_field(form.password, autocomplete="new-password") }}
+      {{ render_field(form.confirm_password, autocomplete="new-password") }}
+      {{ form.submit(class="btn btn-primary w-100") }}
+    </form>
   </div>
 </div>
 {% endblock %}
