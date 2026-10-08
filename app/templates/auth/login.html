@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import render_field %}
+{% block title %}{{ role.capitalize() }} login{% endblock %}
+
+{% block content %}
+<div class="card auth-card shadow-sm">
+  <div class="card-body p-4 p-md-5">
+    <div class="text-center mb-4">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Livestock Tracker logo" class="auth-logo mb-3">
+      <h1 class="h4 mb-1">Livestock Tracker</h1>
+      <p class="text-secondary mb-0">Log in to your {{ role }} account</p>
+    </div>
+
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+      {{ render_field(form.email, type="email", autocomplete="email") }}
+      {# "current-password" lets the browser's password manager fill it in. #}
+      {{ render_field(form.password, autocomplete="current-password") }}
+      {{ form.submit(class="btn btn-primary w-100") }}
+    </form>
+
+    <div class="text-center small mt-4">
+      {# Only farmers can sign up; workers are added by their farmer (Batch 6). #}
+      {% if role == "farmer" %}
+        New farmer? <a href="{{ url_for('auth.register') }}">Create an account</a>
+      {% else %}
+        No account yet? Ask your farmer to add you.
+      {% endif %}
+      <div class="mt-2"><a href="{{ url_for('main.index') }}">&larr; Choose a different account type</a></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

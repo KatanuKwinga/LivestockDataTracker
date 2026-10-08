@@ -1,9 +1,9 @@
-#Builds the Flask app. 
+"""Builds the Flask app. This is the "application factory" pattern."""
 from flask import Flask
 from sqlalchemy import text
 
 from app.config import Config
-from app.extensions import bcrypt, db, login_manager, migrate
+from app.extensions import bcrypt, csrf, db, login_manager, migrate
 
 
 def create_app(config_class=Config):
@@ -22,21 +22,27 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     login_manager.init_app(app)
     bcrypt.init_app(app)
+    csrf.init_app(app)
+
+    # Where @login_required sends visitors who aren't logged in: the welcome
+    # page, where they pick Farmer or Worker. The message appears as a flash.
+    login_manager.login_view = "main.index"
+    login_manager.login_message = "Please log in to continue."
+    login_manager.login_message_category = "info"
 
     # Import the models so SQLAlchemy and Flask-Migrate know the tables exist.
-    from app import models  
+    from app import models  # noqa: F401
 
     # Each blueprint is a group of related pages. Registering it switches
     # its routes on.
     from app.routes.main import main_bp
     app.register_blueprint(main_bp)
-    
     from app.routes.auth import auth_bp
     app.register_blueprint(auth_bp)
 
     @app.route("/health")
     def health():
-        #Quick check that the app is running and can reach the database.
+        """Quick check that the app is running and can reach the database."""
         try:
             db.session.execute(text("SELECT 1"))
             return {"app": "ok", "database": "ok"}

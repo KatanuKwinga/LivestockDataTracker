@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+{# The greeting from wireframe 6. current_user is available in every
+   template; .name comes from the @property on Farmer/Worker. #}
+<h1 class="h3 mb-1">{{ greeting }}, {{ current_user.name }}</h1>
+
+{% if is_farmer %}
+  <p class="text-secondary">Here is an overview of your livestock.</p>
+  <div class="alert alert-info">Your herd summary, health overview and charts will appear here as they are built.</div>
+{% else %}
+  <p class="text-secondary">You're logged in as a worker.</p>
+  <div class="alert alert-info">Your data-entry screens will appear here as they are built.</div>
+{% endif %}
+{% endblock %}

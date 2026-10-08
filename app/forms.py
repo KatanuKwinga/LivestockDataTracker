@@ -47,3 +47,14 @@ class FarmerRegistrationForm(FlaskForm):
         # so this error appears right under the email box.
         if User.query.filter_by(email=field.data).first():
             raise ValidationError("An account with this email already exists.")
+
+
+
+class LoginForm(FlaskForm):
+    # The same email filter as registration, so " Jane@Example.com " finds
+    # the account saved as "jane@example.com".
+    email = StringField("Email", filters=[normalise_email], validators=[DataRequired(), Email()])
+    # No length rule here: when logging in we only check whether the
+    # password is right, not whether it would be a good new password.
+    password = PasswordField("Password", validators=[DataRequired()])
+    submit = SubmitField("Log in")

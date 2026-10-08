@@ -2,10 +2,32 @@
 {% block title %}Welcome{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-lg-8 text-center py-5">
-    <h1 class="display-6 fw-semibold">Livestock Data Tracking and Analytics</h1>
-    <p class="lead text-secondary">Keep the records for your cattle, chickens, goats and sheep in one place.</p>
+<div class="text-center py-4">
+  <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Livestock Tracker logo" class="auth-logo mb-3">
+  <h1 class="h3 fw-semibold">Welcome to Livestock Tracker</h1>
+  <p class="text-secondary mb-4">Which account are you logging in to?</p>
+
+  <div class="row g-3 justify-content-center">
+    {# Each card is a link to that role's login page. "next" is passed along,
+       so after logging in you return to the page you originally asked for. #}
+    <div class="col-sm-6 col-md-4 col-lg-3">
+      <a class="card role-card text-decoration-none h-100"
+         href="{{ url_for('auth.login', role='farmer', next=request.args.get('next')) }}">
+        <div class="card-body py-4">
+          <div class="h5 mb-1">Farmer</div>
+          <div class="small text-secondary">Analytics, predictions and your workers</div>
+        </div>
+      </a>
+    </div>
+    <div class="col-sm-6 col-md-4 col-lg-3">
+      <a class="card role-card text-decoration-none h-100"
+         href="{{ url_for('auth.login', role='worker', next=request.args.get('next')) }}">
+        <div class="card-body py-4">
+          <div class="h5 mb-1">Worker</div>
+          <div class="small text-secondary">Record and update livestock data</div>
+        </div>
+      </a>
+    </div>
   </div>
 </div>
 {% endblock %}

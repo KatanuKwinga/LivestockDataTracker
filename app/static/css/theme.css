@@ -72,3 +72,11 @@
 /* Login / register cards (wireframe 2): centred, not too wide, blue top edge. */
 .auth-logo { width: 64px; height: 64px; }
 .auth-card { max-width: 440px; margin: 0 auto; border: 0; border-top: 4px solid var(--lt-blue); }
+
+
+/* Welcome page cards (wireframe 1): a blue outline and a small lift on
+   hover, so it's obvious they can be clicked. */
+.role-card { border: 2px solid transparent; transition: border-color .15s, transform .15s; }
+.role-card:hover,
+.role-card:focus { border-color: var(--lt-blue); transform: translateY(-2px); }
+.role-card .h5 { color: var(--lt-blue); }

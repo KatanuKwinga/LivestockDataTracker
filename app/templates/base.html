@@ -35,8 +35,22 @@
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="mainNav">
-        <ul class="navbar-nav ms-auto">
+        <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
+          {% if current_user.is_authenticated %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('main.dashboard') }}">Home</a></li>
+            <li class="nav-item"><span class="navbar-text">{{ current_user.name }}</span></li>
+            <li class="nav-item">
+              {# Logging out changes something (it ends your session), so it's a
+                 POST form with a CSRF token, styled to look like a button. #}
+              <form method="post" action="{{ url_for('auth.logout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-light">Log out</button>
+              </form>
+            </li>
+          {% else %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('main.index') }}">Log in</a></li>
             <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.register') }}">Register</a></li>
+          {% endif %}
         </ul>
       </div>
     </div>
