@@ -23,11 +23,19 @@ class Livestock(db.Model):
     breed = db.Column(db.String(50))
     date_of_birth = db.Column(db.Date)
     description = db.Column(db.Text)
+    # The birth this animal came from, if it was born on the farm (empty for
+    # animals that were bought in). This is the circular link with
+    # breeding_record: use_alter=True tells SQLAlchemy to add this foreign key
+    # after both tables exist, because each table points at the other.
+    b_record_id = db.Column(
+        db.Integer,
+        db.ForeignKey("breeding_record.b_record_id", use_alter=True, name="fk_livestock_birth_event"),
+    )
 
     farmer = db.relationship("Farmer", back_populates="livestock")
     # cascade="all, delete-orphan": deleting an animal also deletes its
-    # records, so no weigh-ins are left pointing at an animal that's gone.
-    # order_by: animal.weight_records always comes back oldest first.
+    # records, so nothing is left pointing at an animal that's gone.
+    # order_by: the records always come back oldest first.
     weight_records = db.relationship(
         "WeightRecord", back_populates="animal",
         cascade="all, delete-orphan", order_by="WeightRecord.date",
@@ -36,6 +44,26 @@ class Livestock(db.Model):
         "HealthRecord", back_populates="animal",
         cascade="all, delete-orphan", order_by="HealthRecord.date",
     )
+    production_records = db.relationship(
+        "ProductionData", back_populates="animal",
+        cascade="all, delete-orphan", order_by="ProductionData.date",
+    )
+    commercial_records = db.relationship(
+        "CommercialInfo", back_populates="animal",
+        cascade="all, delete-orphan", order_by="CommercialInfo.date",
+    )
+    # uselist=False: an animal has at most one death record, so this gives a
+    # single object (or None), not a list.
+    mortality_record = db.relationship(
+        "MortalityRecord", back_populates="animal",
+        uselist=False, cascade="all, delete-orphan",
+    )
+
+    # Breeding links. Again, several columns point between the same two
+    # tables, so each relationship names the column it follows.
+    birth_event = db.relationship("BreedingRecord", foreign_keys=[b_record_id], back_populates="offspring")
+    dam_events = db.relationship("BreedingRecord", foreign_keys="BreedingRecord.animal_id", back_populates="dam")
+    sire_events = db.relationship("BreedingRecord", foreign_keys="BreedingRecord.sire_id", back_populates="sire")
 
     @property
     def age(self):
