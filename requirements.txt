@@ -11,8 +11,9 @@ email-validator==2.2.0
 # Reads settings and secrets from the .env file
 python-dotenv==1.0.1
 
-# PostgreSQL driver, so Python can talk to Supabase.
-psycopg2-binary>=2.9.10
+# PostgreSQL driver, so Python can talk to Supabase. pg8000 is written in plain
+# Python (no compiled .dll files), so Windows Application Control can't block it.
+pg8000>=1.31
 
 # Testing
 pytest==8.3.2 
