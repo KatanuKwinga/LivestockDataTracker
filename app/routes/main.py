@@ -4,8 +4,6 @@ from datetime import datetime
 from flask import Blueprint, redirect, render_template, url_for
 from flask_login import current_user, login_required
 
-from app.models import Farmer
-
 # A blueprint is a group of related pages. "main" is its name, which is why
 # templates refer to these pages as url_for('main.index') and so on.
 main_bp = Blueprint("main", __name__)
@@ -27,4 +25,4 @@ def dashboard():
     greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
     # isinstance() asks "is the logged-in account a Farmer object?". This is
     # how the app tells the two roles apart, and it decides what's shown.
-    return render_template("dashboard.html", greeting=greeting, is_farmer=isinstance(current_user, Farmer))
+    return render_template("dashboard.html", greeting=greeting)

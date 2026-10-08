@@ -37,9 +37,22 @@ def create_app(config_class=Config):
     # its routes on.
     from app.routes.main import main_bp
     app.register_blueprint(main_bp)
+
     from app.routes.auth import auth_bp
     app.register_blueprint(auth_bp)
 
+    from app.routes.workers import workers_bp
+    app.register_blueprint(workers_bp)
+
+    # A context processor adds variables to EVERY template automatically.
+    # Here: is_farmer, so base.html can show farmer-only links (like
+    # "Workers") without every route having to pass it in.
+    @app.context_processor
+    def inject_role():
+        from flask_login import current_user
+        from app.models import Farmer
+        return {"is_farmer": current_user.is_authenticated and isinstance(current_user, Farmer)}
+    
     @app.route("/health")
     def health():
         """Quick check that the app is running and can reach the database."""

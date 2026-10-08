@@ -3,9 +3,9 @@ workers, as in the wireframes) and logout. Workers and password reset are
 added in later batches."""
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
-from sqlalchemy.exc import IntegrityError
 
-from app.extensions import bcrypt, db
+from app.accounts import create_account
+from app.extensions import bcrypt
 from app.forms import FarmerRegistrationForm, LoginForm
 from app.models import Farmer, User
 
@@ -35,36 +35,17 @@ def register():
         return redirect(url_for("main.dashboard"))
 
     form = FarmerRegistrationForm()
-    # True only for a POST whose CSRF token and every validator passed.
     if form.validate_on_submit():
-        user = User(
-            name=form.name.data,
-            email=form.email.data,
-            phone=form.phone.data or None,
-            # bcrypt turns the password into a one-way hash. Only the hash is
-            # stored, so even someone who saw the database couldn't read the
-            # password. .decode() turns bcrypt's bytes into text.
-            password_hash=bcrypt.generate_password_hash(form.password.data).decode("utf-8"),
-        )
-        db.session.add(user)
-        try:
-            # flush() sends the INSERT now and gives us user.id, without
-            # committing yet: the Farmer row needs that id. Both are then
-            # committed together, so there's never a user without a role.
-            db.session.flush()
-            db.session.add(Farmer(user_id=user.id))
-            db.session.commit()
-        except IntegrityError:
-            # Two sign-ups at the same instant can both pass validate_email();
-            # the database's unique rule on email rejects the second one.
-            db.session.rollback()
+        # The role row for a self-registering user is always a Farmer.
+        # "lambda user: Farmer(...)" is a tiny unnamed function: given the
+        # new user, it returns their Farmer row.
+        user = create_account(form, lambda user: Farmer(user_id=user.id))
+        if user is None:
             form.email.errors.append("An account with this email already exists.")
-            return render_template("auth/register.html", form=form)
-
-        flash("Your farmer account has been created. Please log in.", "success")
-        # Post/Redirect/Get: redirect after a successful POST, so pressing
-        # Refresh doesn't resubmit the form. Straight to the farmer login.
-        return redirect(url_for("auth.login", role="farmer"))
+        else:
+            flash("Your farmer account has been created. Please log in.", "success")
+            # Post/Redirect/Get: Refresh won't resubmit the form.
+            return redirect(url_for("auth.login", role="farmer"))
 
     return render_template("auth/register.html", form=form)
 

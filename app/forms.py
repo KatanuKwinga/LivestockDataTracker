@@ -58,3 +58,11 @@ class LoginForm(FlaskForm):
     # password is right, not whether it would be a good new password.
     password = PasswordField("Password", validators=[DataRequired()])
     submit = SubmitField("Log in")
+
+
+
+class WorkerCreationForm(FarmerRegistrationForm):
+    """Used by a farmer to add a worker. It has exactly the same fields and
+    rules as registration (inherited), only the button text differs."""
+
+    submit = SubmitField("Add worker")

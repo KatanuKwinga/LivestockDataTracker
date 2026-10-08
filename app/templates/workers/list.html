@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Workers{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Workers</h1>
+    <p class="text-secondary mb-0">People who can record data for your farm.</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('workers.new_worker') }}">Add worker</a>
+</div>
+
+{% if workers %}
+  <div class="card shadow-sm">
+    {# table-responsive: on a phone, the table scrolls sideways instead of squashing. #}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr><th>Name</th><th>Email</th><th>Phone</th></tr>
+        </thead>
+        <tbody>
+          {% for worker in workers %}
+            <tr>
+              <td>{{ worker.name }}</td>
+              <td>{{ worker.email }}</td>
+              <td>{{ worker.user.phone or "—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  {# An empty state that tells the farmer what to do next, instead of an empty table. #}
+  <div class="alert alert-info">You haven't added any workers yet. Use <strong>Add worker</strong> to create their login.</div>
+{% endif %}
+{% endblock %}
