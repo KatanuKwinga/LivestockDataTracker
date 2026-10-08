@@ -37,6 +37,7 @@ class Farmer(UserMixin, db.Model):
 
     user = db.relationship("User", back_populates="farmer")
     workers = db.relationship("Worker", back_populates="farmer")
+    livestock = db.relationship("Livestock", back_populates="farmer")
 
     def get_id(self):
         # Flask-Login stores this text in the login cookie. The "farmer:"
