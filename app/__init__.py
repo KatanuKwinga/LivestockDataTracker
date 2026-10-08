@@ -25,6 +25,11 @@ def create_app(config_class=Config):
 
     # Import the models so SQLAlchemy and Flask-Migrate know the tables exist.
     from app import models  
+    
+    # Each blueprint is a group of related pages. Registering it switches
+    # its routes on.
+    from app.routes.main import main_bp
+    app.register_blueprint(main_bp)
 
     @app.route("/health")
     def health():
