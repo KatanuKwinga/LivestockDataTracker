@@ -16,11 +16,18 @@
       {{ render_field(form.email, type="email", autocomplete="email") }}
       {# "current-password" lets the browser's password manager fill it in. #}
       {{ render_field(form.password, autocomplete="current-password") }}
+
+      {# "Forgot password?" sits directly under the password box and above
+         the Log in button, as in the wireframe. #}
+      <div class="text-end small mb-3 mt-n2">
+        <a href="{{ url_for('auth.reset_request') }}">Forgot password?</a>
+      </div>
+
       {{ form.submit(class="btn btn-primary w-100") }}
     </form>
 
     <div class="text-center small mt-4">
-      {# Only farmers can sign up; workers are added by their farmer (Batch 6). #}
+      {# Only farmers can sign up; workers are added by their farmer. #}
       {% if role == "farmer" %}
         New farmer? <a href="{{ url_for('auth.register') }}">Create an account</a>
       {% else %}

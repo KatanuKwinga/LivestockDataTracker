@@ -6,7 +6,11 @@ or `workers` table and linked back to their `users` row. Keeping the shared
 details in one table means login, email checks and password reset work the
 same way for both roles.
 """
+import hashlib
+
+from flask import current_app
 from flask_login import UserMixin
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from app.extensions import db, login_manager
 
@@ -27,6 +31,40 @@ class User(db.Model):
     # linked role row, or None. uselist=False means "one object, not a list".
     farmer = db.relationship("Farmer", back_populates="user", uselist=False)
     worker = db.relationship("Worker", back_populates="user", uselist=False)
+
+    
+    # How long a password-reset link stays valid: 30 minutes, in seconds.
+    RESET_TOKEN_MAX_AGE = 30 * 60
+
+    def _password_fingerprint(self):
+        #A short code that changes whenever the password changes. Put inside every reset token. 
+        return hashlib.sha256(self.password_hash.encode("utf-8")).hexdigest()[:16]
+
+    def get_reset_token(self):
+        """Create a signed password-reset token for this user.
+
+        URLSafeTimedSerializer signs the data with SECRET_KEY and stamps the
+        time. Anyone can read a token, but nobody can forge or edit one
+        without the key. 
+        """
+        serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="password-reset")
+        return serializer.dumps({"user_id": self.id, "fp": self._password_fingerprint()})
+
+    @staticmethod
+    def verify_reset_token(token, max_age=RESET_TOKEN_MAX_AGE):
+        """Return the User a token belongs to, or None if the token was
+        tampered with, has expired, or has already been used."""
+        serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="password-reset")
+        try:
+            data = serializer.loads(token, max_age=max_age)
+        except (BadSignature, SignatureExpired):
+            return None
+        user = db.session.get(User, data.get("user_id"))
+        # A wrong fingerprint means the password has changed since this
+        # link was made, i.e. it was already used (or is old).
+        if user is None or data.get("fp") != user._password_fingerprint():
+            return None
+        return user
 
 
 class Farmer(UserMixin, db.Model):

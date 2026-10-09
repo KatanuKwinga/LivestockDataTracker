@@ -3,7 +3,7 @@ from flask import Flask
 from sqlalchemy import text
 
 from app.config import Config
-from app.extensions import bcrypt, csrf, db, login_manager, migrate
+from app.extensions import bcrypt, csrf, db, login_manager, mail, migrate
 
 
 def create_app(config_class=Config):
@@ -23,6 +23,7 @@ def create_app(config_class=Config):
     login_manager.init_app(app)
     bcrypt.init_app(app)
     csrf.init_app(app)
+    mail.init_app(app)
 
     # Where @login_required sends visitors who aren't logged in: the welcome
     # page, where they pick Farmer or Worker. The message appears as a flash.

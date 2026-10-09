@@ -66,3 +66,23 @@ class WorkerCreationForm(FarmerRegistrationForm):
     rules as registration (inherited), only the button text differs."""
 
     submit = SubmitField("Add worker")
+
+
+
+class RequestResetForm(FlaskForm):
+    # Deliberately NO "is this email registered?" check here: that would
+    # tell a stranger which emails have accounts. See reset_request().
+    email = StringField("Email", filters=[normalise_email], validators=[DataRequired(), Email()])
+    submit = SubmitField("Send reset link")
+
+
+class ResetPasswordForm(FlaskForm):
+    # The same rules as registration: 8+ characters, typed twice.
+    password = PasswordField(
+        "New password", validators=[DataRequired(), Length(min=8, message="Use at least 8 characters.")]
+    )
+    confirm_password = PasswordField(
+        "Confirm new password",
+        validators=[DataRequired(), EqualTo("password", message="The passwords don't match.")],
+    )
+    submit = SubmitField("Save new password")
