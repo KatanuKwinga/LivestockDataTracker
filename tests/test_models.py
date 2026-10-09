@@ -26,6 +26,7 @@ def test_all_ten_tables_exist(app_ctx):
 
 
 def test_age_is_calculated_from_date_of_birth(app_ctx):
+    # These animals are never saved, so they don't need a tag number.
     today = date.today()
     animal = Livestock(species="GOAT", gender="FEMALE", date_of_birth=date(today.year - 3, 1, 1))
     assert animal.age == 3
@@ -45,7 +46,7 @@ def test_age_counts_a_birthday_not_yet_reached_this_year(app_ctx):
 
 def test_deleting_an_animal_deletes_its_records(app_ctx):
     farmer = make_farmer()
-    cow = Livestock(farmer_id=farmer.farmer_id, species="CATTLE", gender="FEMALE")
+    cow = Livestock(farmer_id=farmer.farmer_id, tag_number="C001", species="CATTLE", gender="FEMALE")
     db.session.add(cow)
     db.session.flush()
     db.session.add_all([
@@ -64,14 +65,14 @@ def test_deleting_an_animal_deletes_its_records(app_ctx):
 
 def test_num_born_alive_counts_registered_offspring(app_ctx):
     farmer = make_farmer()
-    dam = Livestock(farmer_id=farmer.farmer_id, species="GOAT", gender="FEMALE")
+    dam = Livestock(farmer_id=farmer.farmer_id, tag_number="G001", species="GOAT", gender="FEMALE")
     db.session.add(dam)
     db.session.flush()
     birth = BreedingRecord(animal_id=dam.animal_id, status="SUCCESSFUL BIRTH", num_stillborn=1)
     db.session.add(birth)
     db.session.flush()
-    for gender in ("MALE", "FEMALE"):
-        db.session.add(Livestock(farmer_id=farmer.farmer_id, species="GOAT", gender=gender,
+    for tag, gender in (("G002", "MALE"), ("G003", "FEMALE")):
+        db.session.add(Livestock(farmer_id=farmer.farmer_id, tag_number=tag, species="GOAT", gender=gender,
                                  b_record_id=birth.b_record_id))
     db.session.commit()
 

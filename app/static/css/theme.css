@@ -80,3 +80,14 @@
 .role-card:hover,
 .role-card:focus { border-color: var(--lt-blue); transform: translateY(-2px); }
 .role-card .h5 { color: var(--lt-blue); }
+
+
+/* Species and category cards (wireframe 3): same lift-and-outline effect
+   as the welcome page cards, but only for cards that are real links. */
+.choice-card { border: 2px solid transparent; transition: border-color .15s, transform .15s; }
+a.choice-card:hover,
+a.choice-card:focus { border-color: var(--lt-blue); transform: translateY(-2px); }
+a.choice-card .h5 { color: var(--lt-blue); }
+/* "Coming soon" cards: faded, with a "not allowed" cursor. */
+.choice-card.is-disabled { opacity: .6; cursor: not-allowed; }
+.choice-icon { font-size: 2.5rem; line-height: 1; }

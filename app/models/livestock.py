@@ -8,9 +8,19 @@ from app.extensions import db
 SPECIES = ("CATTLE", "CHICKEN", "GOAT", "SHEEP")
 GENDERS = ("MALE", "FEMALE")
 
+# The start of each species' suggested tag number: C001, CH001, G001, S001.
+TAG_PREFIXES = {"CATTLE": "C", "CHICKEN": "CH", "GOAT": "G", "SHEEP": "S"}
+
 
 class Livestock(db.Model):
     __tablename__ = "livestock"
+
+    # A tag number only has to be unique WITHIN a farm: two farms may both
+    # have a "G001". A unique constraint on the PAIR (farmer_id, tag_number)
+    # says exactly that.
+    __table_args__ = (
+        db.UniqueConstraint("farmer_id", "tag_number", name="uq_livestock_farm_tag"),
+    )
 
     animal_id = db.Column(db.Integer, primary_key=True)
     # index=True: almost every page asks "which animals belong to this farm?",
@@ -18,6 +28,10 @@ class Livestock(db.Model):
     farmer_id = db.Column(db.Integer, db.ForeignKey("farmers.farmer_id"), nullable=False, index=True)
     # db.Enum only accepts the listed values; the database rejects anything
     # else (e.g. "HORSE"). PostgreSQL needs each Enum to have a name.
+    
+    # The farm's own ID for the animal, e.g. an ear-tag number like "G004".
+    # The form suggests the next free one (app/farm.py), and the farmer can change it.
+    tag_number = db.Column(db.String(20), nullable=False)
     species = db.Column(db.Enum(*SPECIES, name="species_enum"), nullable=False)
     gender = db.Column(db.Enum(*GENDERS, name="gender_enum"), nullable=False)
     breed = db.Column(db.String(50))

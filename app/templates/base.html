@@ -38,6 +38,7 @@
         <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
           {% if current_user.is_authenticated %}
             <li class="nav-item"><a class="nav-link" href="{{ url_for('main.dashboard') }}">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('records.choose_species') }}">Add Record</a></li>
             {% if is_farmer %}
             <li class="nav-item"><a class="nav-link" href="{{ url_for('workers.list_workers') }}">Workers</a></li>
             {% endif %}

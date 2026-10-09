@@ -7,10 +7,9 @@
 {% if is_farmer %}
   <p class="text-secondary">Here is an overview of your livestock.</p>
   <div class="alert alert-info">Your herd summary, health overview and charts will appear here as they are built.</div>
-  <a class="btn btn-primary" href="{{ url_for('workers.list_workers') }}">Manage workers</a>
-{% else %}
+  <a class="btn btn-primary" href="{{ url_for('records.choose_species') }}">Add a record</a>
+  <a class="btn btn-outline-primary" href="{{ url_for('workers.list_workers') }}">Manage workers</a>{% else %}
   {# current_user.farmer: the worker's farm, through the relationship in user.py. #}
   <p class="text-secondary">You're recording data for {{ current_user.farmer.name }}'s farm.</p>
-  <div class="alert alert-info">Your data-entry screens will appear here as they are built.</div>
-{% endif %}
+  <a class="btn btn-primary" href="{{ url_for('records.choose_species') }}">Add a record</a>{% endif %}
 {% endblock %}
