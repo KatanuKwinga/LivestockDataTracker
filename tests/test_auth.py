@@ -5,40 +5,45 @@ from tests.conftest import login, register_farmer
 
 # ---- Registration -----------------------------------------------------
 
-def test_farmer_can_register(client):
+def test_farmer_can_register(app, client):
     response = register_farmer(client, email=" Jane@Example.com ")
 
     # 302 = a redirect; here, to the farmer login page.
     assert response.status_code == 302
     assert response.headers["Location"] == "/auth/login/farmer"
-    user = User.query.one()
-    assert user.email == "jane@example.com"          # spaces and capitals tidied
-    assert user.farmer is not None                   # a Farmer row was created too
-    assert user.password_hash.startswith("$2b$")     # bcrypt's signature
-    assert "password123" not in user.password_hash   # the real password is not stored
+    # Reading the database directly needs an app context.
+    with app.app_context():
+        user = User.query.one()
+        assert user.email == "jane@example.com"          # spaces and capitals tidied
+        assert user.farmer is not None                   # a Farmer row was created too
+        assert user.password_hash.startswith("$2b$")     # bcrypt's signature
+        assert "password123" not in user.password_hash   # the real password is not stored
 
 
-def test_duplicate_email_is_rejected_whatever_the_capitals(client):
+def test_duplicate_email_is_rejected_whatever_the_capitals(app, client):
     register_farmer(client, email="jane@example.com")
     response = register_farmer(client, email="JANE@example.com")
 
     assert b"An account with this email already exists." in response.data
-    assert User.query.count() == 1
+    with app.app_context():
+        assert User.query.count() == 1
 
 
-def test_passwords_must_match(client):
+def test_passwords_must_match(app, client):
     response = client.post("/auth/register", data={
         "name": "Jane", "email": "jane@example.com",
         "password": "password123", "confirm_password": "different123",
     })
     assert b"match" in response.data
-    assert User.query.count() == 0
+    with app.app_context():
+        assert User.query.count() == 0
 
 
-def test_password_must_be_at_least_8_characters(client):
+def test_password_must_be_at_least_8_characters(app, client):
     response = register_farmer(client, password="short")
     assert b"Use at least 8 characters." in response.data
-    assert Farmer.query.count() == 0
+    with app.app_context():
+        assert Farmer.query.count() == 0
 
 
 # ---- Login ------------------------------------------------------------

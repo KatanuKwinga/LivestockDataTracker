@@ -3,7 +3,7 @@
 It builds the app with TestConfig instead of the real settings, so tests:
 - use a throwaway in-memory SQLite database, never Supabase;
 - never send real emails;
-- can post forms without a CSRF token (CSRF gets its own test in Batch 8b).
+- can post forms without a CSRF token (CSRF has its own tests in test_csrf.py).
 """
 import pytest
 
@@ -36,16 +36,27 @@ class TestConfig(Config):
 def app():
     """A fresh app with empty tables, for each test.
 
-    A *fixture* is setup that pytest runs for any test that asks for it by
-    name, e.g. def test_x(app):. Everything before `yield` runs before the
-    test; everything after runs afterwards to clean up.
+    The app context is opened ONLY to create and delete the tables, never
+    held open while the test runs. If it stayed open, every request in the
+    test would share one context, and with it Flask-Login's memory of who
+    is logged in, so two test "browsers" could end up as the same person.
+    Real requests each get their own context; tests must behave the same.
     """
     app = create_app(TestConfig)
     with app.app_context():
         db.create_all()       # build all 10 tables from the models
-        yield app
+    yield app
+    with app.app_context():
         db.session.remove()
         db.drop_all()         # throw everything away
+
+
+@pytest.fixture
+def app_ctx(app):
+    """For tests that work with the database directly and make no web
+    requests (e.g. test_models.py): keeps an app context open throughout."""
+    with app.app_context():
+        yield app
 
 
 @pytest.fixture

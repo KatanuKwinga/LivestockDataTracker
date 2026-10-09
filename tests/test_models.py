@@ -17,7 +17,7 @@ def make_farmer(email="f@example.com"):
     return farmer
 
 
-def test_all_ten_tables_exist(app):
+def test_all_ten_tables_exist(app_ctx):
     expected = {
         "users", "farmers", "workers", "livestock", "weight_records", "health_records",
         "breeding_record", "production_data", "commercial_info", "mortality_records",
@@ -25,7 +25,7 @@ def test_all_ten_tables_exist(app):
     assert expected == set(db.metadata.tables)
 
 
-def test_age_is_calculated_from_date_of_birth(app):
+def test_age_is_calculated_from_date_of_birth(app_ctx):
     today = date.today()
     animal = Livestock(species="GOAT", gender="FEMALE", date_of_birth=date(today.year - 3, 1, 1))
     assert animal.age == 3
@@ -33,7 +33,7 @@ def test_age_is_calculated_from_date_of_birth(app):
     assert Livestock(species="GOAT", gender="MALE").age is None
 
 
-def test_age_counts_a_birthday_not_yet_reached_this_year(app):
+def test_age_counts_a_birthday_not_yet_reached_this_year(app_ctx):
     # Born on 31 December two years ago: until this year's 31 December,
     # the animal is still only 1.
     today = date.today()
@@ -43,7 +43,7 @@ def test_age_counts_a_birthday_not_yet_reached_this_year(app):
     assert animal.age == expected
 
 
-def test_deleting_an_animal_deletes_its_records(app):
+def test_deleting_an_animal_deletes_its_records(app_ctx):
     farmer = make_farmer()
     cow = Livestock(farmer_id=farmer.farmer_id, species="CATTLE", gender="FEMALE")
     db.session.add(cow)
@@ -62,7 +62,7 @@ def test_deleting_an_animal_deletes_its_records(app):
     assert HealthRecord.query.count() == 0
 
 
-def test_num_born_alive_counts_registered_offspring(app):
+def test_num_born_alive_counts_registered_offspring(app_ctx):
     farmer = make_farmer()
     dam = Livestock(farmer_id=farmer.farmer_id, species="GOAT", gender="FEMALE")
     db.session.add(dam)
@@ -80,7 +80,7 @@ def test_num_born_alive_counts_registered_offspring(app):
     assert birth.offspring[0].birth_event.dam is dam
 
 
-def test_load_user_reads_the_role_prefix(app):
+def test_load_user_reads_the_role_prefix(app_ctx):
     farmer = make_farmer()
     worker_user = User(name="Worker", email="w@example.com", password_hash="x")
     db.session.add(worker_user)
