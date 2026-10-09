@@ -15,5 +15,14 @@ python-dotenv==1.0.1
 # Python (no compiled .dll files), so Windows Application Control can't block it.
 pg8000>=1.31
 
+# Machine learning
+# Minimum versions (>=), not exact pins: exact old versions may have no
+# ready-made Windows install file for your Python, and then pip tries to
+# build from source, which fails without Visual Studio.
+numpy>=2.0
+pandas>=2.2.3
+scikit-learn>=1.5.2
+joblib>=1.4
+
 # Testing
 pytest==8.3.2 
