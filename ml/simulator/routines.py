@@ -116,6 +116,8 @@ def spraying_step(farm, day):
         farm.last_spray.setdefault(species, farm.start - timedelta(days=1))
         if day.weekday() == 0:
             farm.spray_week_missed[species] = rng.random() < MISSED_SPRAY_WEEK_CHANCE
+            if farm.spray_week_missed[species]:
+                farm.missed_spray_weeks.setdefault(species, []).append(day)
         if day.weekday() in SPRAY_WEEKDAYS[per_week] and not farm.spray_week_missed.get(species):
             farm.herd_activities.append({
                 "date": day, "species": species, "activity": "TICK_SPRAY", "product": SPRAY_PRODUCT,

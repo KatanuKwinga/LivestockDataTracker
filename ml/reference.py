@@ -248,6 +248,16 @@ GESTATION_DAYS = {"CATTLE": 283, "GOAT": 150, "SHEEP": 147}
 # Kwetu sells mostly in December (2024: 22 goats, 18 sheep that month).
 SALE_MONTH = 12
 
+# Weights
+# Growth: weight at birth and as an adult (kg), and the age (days) by which
+# an animal is about 90% grown. Cattle adult weight fits Kwetu's 2025 sale
+# weights (270-459 kg); the rest are typical figures for these breeds.
+GROWTH = {
+    "CATTLE": {"birth": 30.0, "adult": 400.0, "grown_by": 900},
+    "GOAT": {"birth": 3.0, "adult": 40.0, "grown_by": 365},
+    "SHEEP": {"birth": 3.5, "adult": 45.0, "grown_by": 365},
+    "CHICKEN": {"birth": 0.04, "adult": 2.0, "grown_by": 150},
+}
 # Herd assumptions
 
 AGE_LIMIT_DAYS = {"CATTLE": 10 * 365, "GOAT": 7 * 365, "SHEEP": 7 * 365, "CHICKEN": 3 * 365}
@@ -279,7 +289,9 @@ RESISTANT_BREED_MULTIPLIER = 0.5    # e.g. zebu cattle and ECF
 ILLNESS_RECOVERY_DAYS = 21          # no new illness while still recovering
 FEVER_RISE = (1.0, 2.5)             # degC above normal when a fever is present
 REPEAT_TREATMENT_CHANCES = (0.25, 0.35, 0.20, 0.12, 0.08)   # 0, 1, 2, 3 or 4 follow-ups
-
+WEIGH_DAYS_PER_YEAR = 2             # Kwetu rarely weighs: a couple of herd weigh days a year
+MISSED_WEIGH_CHANCE = 0.10          # animals not caught on a weigh day
+ILLNESS_WEIGHT_DROP = (0.05, 0.10)  # weight lost when weighed within 30 days of falling ill
 
 def daily_chance(rank):
     #Turn a yearly chance into the chance on any single day.

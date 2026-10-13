@@ -1,5 +1,7 @@
 """Tests for the database models: tables, calculated values, links between tables."""
 from datetime import date
+import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models import BreedingRecord, Farmer, HealthRecord, Livestock, User, WeightRecord, Worker
@@ -80,7 +82,27 @@ def test_num_born_alive_counts_registered_offspring(app_ctx):
     # The circular link works both ways: a kid -> its birth -> its mother.
     assert birth.offspring[0].birth_event.dam is dam
 
+def test_temperature_is_optional_but_must_be_believable(app_ctx):
+    farmer = make_farmer()
+    goat = Livestock(farmer_id=farmer.farmer_id, tag_number="G001", species="GOAT", gender="FEMALE")
+    db.session.add(goat)
+    db.session.flush()
+    # A fever reading and a vaccination with no reading are both fine.
+    db.session.add_all([
+        HealthRecord(animal_id=goat.animal_id, date=date(2026, 9, 1), record_type="ILLNESS",
+                     disease="Pneumonia", temperature=40.8),
+        HealthRecord(animal_id=goat.animal_id, date=date(2026, 9, 2), record_type="VACCINATION"),
+    ])
+    db.session.commit()
 
+    # 408 is a typo for 40.8: the database's check constraint refuses it.
+    db.session.add(HealthRecord(animal_id=goat.animal_id, date=date(2026, 9, 3),
+                                record_type="ILLNESS", temperature=408))
+    with pytest.raises(IntegrityError):
+        db.session.commit()
+    db.session.rollback()
+    assert HealthRecord.query.count() == 2
+    
 def test_load_user_reads_the_role_prefix(app_ctx):
     farmer = make_farmer()
     worker_user = User(name="Worker", email="w@example.com", password_hash="x")

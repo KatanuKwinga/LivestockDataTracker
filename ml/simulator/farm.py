@@ -35,6 +35,7 @@ class Animal:
     vaccine_next_try: dict = field(default_factory=dict)  # when the farmer will actually do it
     vaccine_doses: dict = field(default_factory=dict)     # doses given so far
     vaccines_ready: bool = False                          # bookkeeping set up yet?
+    last_illness: date | None = None                      # start of its latest illness
 
     def age_days(self, day):
         return (day - self.date_of_birth).days
@@ -60,10 +61,14 @@ class Farm:
         self.health = []              # health_records rows
         self.herd_activities = []     # one row per group tick-spray session
         # Herd-level routine state, per species (filled in by routines.py).
+        self.weights = []             # weight_records rows
+        self.weigh_days = {}          # species -> planned weigh days this year
         self.last_spray = {}
         self.spray_week_missed = {}
         self.last_deworm = {}
         self.next_deworm = {}
+        self.missed_spray_weeks = {}  # species -> Mondays of weeks with no spraying
+        self.recent_cases = {}        # (species, condition name) -> dates of new cases
 
     # Animals
 
@@ -122,6 +127,7 @@ class Farm:
                 "description", "treatment", "dosage"]),
             "herd_activities": pd.DataFrame(self.herd_activities, columns=[
                 "date", "species", "activity", "product"]),
+            "weights": pd.DataFrame(self.weights, columns=["animal_id", "date", "weight"]),
         }
 
 
