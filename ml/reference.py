@@ -213,8 +213,39 @@ SPRAYS_PER_WEEK = {"CATTLE": 2, "GOAT": 1, "SHEEP": 1}   # chickens are not spra
 LONG_RAINS = (3, 4, 5)
 SHORT_RAINS = (10, 11, 12)
 
-# ASSUMPTIONS
+#The herd
+# Starting herd.
+# "Young" = under a year old.
+START_HERD = {
+    "CATTLE": {"adult_male": 34, "adult_female": 58, "young_male": 15, "young_female": 26},
+    "GOAT": {"adult_male": 30, "adult_female": 56, "young_male": 6, "young_female": 7},
+    "SHEEP": {"adult_male": 14, "adult_female": 95, "young_male": 3, "young_female": 2},
+    "CHICKEN": {"adult_male": 5, "adult_female": 45, "young_male": 0, "young_female": 0},
+}
 
+# Newborns per adult female per year, from Kwetu's 2024 births
+NEWBORNS_PER_FEMALE_PER_YEAR = {"CATTLE": 0.35, "GOAT": 0.95, "SHEEP": 0.55}
+
+# How long a pregnancy lasts, in days (standard figures). A female cannot
+# give birth again sooner than this.
+GESTATION_DAYS = {"CATTLE": 283, "GOAT": 150, "SHEEP": 147}
+
+# Kwetu sells mostly in December (2024: 22 goats, 18 sheep that month).
+SALE_MONTH = 12
+
+# Herd assumptions
+
+AGE_LIMIT_DAYS = {"CATTLE": 10 * 365, "GOAT": 7 * 365, "SHEEP": 7 * 365, "CHICKEN": 3 * 365}
+FIRST_BIRTH_AGE_DAYS = {"CATTLE": 900, "GOAT": 365, "SHEEP": 420}
+TWIN_CHANCE = {"CATTLE": 0.02, "GOAT": 0.30, "SHEEP": 0.15}
+NEWBORN_DEATH_CHANCE = {"CATTLE": 0.05, "GOAT": 0.08, "SHEEP": 0.08}  # weak at birth, first 2 weeks
+WEAK_NEWBORN_MULTIPLIER = 1.5     # for twins, and again for a first-time mother
+SALE_AGE_DAYS = {"CATTLE": 2 * 365, "GOAT": 365, "SHEEP": 365}
+DECEMBER_SALE_SHARE = {"CATTLE": 0.25, "GOAT": 0.60, "SHEEP": 0.60}   # of males old enough
+# Price in KES. 
+SALE_PRICE_KES = {"CATTLE": (150_000, 200_000), "GOAT": (7_000, 12_000), "SHEEP": (7_000, 12_000)}
+
+# ASSUMPTIONS
 YEARLY_CHANCE = {"common": 0.20, "occasional": 0.05, "rare": 0.01}
 RAINS_MULTIPLIER = {"long": 1.5, "short": 1.3}
 SPRAY_LAPSE_MULTIPLIER = 3.0        # for 1-3 weeks after a missed spray week
