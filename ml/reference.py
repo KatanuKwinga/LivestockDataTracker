@@ -204,8 +204,11 @@ VACCINES = {
     "Fowl typhoid vaccine": {"species": ("CHICKEN",), "first_dose_days": 56, "repeat_days": None, "doses": 1},
 }
 
-# Farm routines based on real farm data
+# Kwetu's vaccination plan (confirmed with the farm): the simulator's
+# default. Each simulated farm can be given its own plan instead.
+FARM_VACCINES = ("CCPP vaccine", "FMD vaccine", "Lumpy skin vaccine")
 
+# Farm routines based on real farm data
 DEWORM_EVERY_DAYS = 90
 SPRAYS_PER_WEEK = {"CATTLE": 2, "GOAT": 1, "SHEEP": 1}   # chickens are not sprayed
 

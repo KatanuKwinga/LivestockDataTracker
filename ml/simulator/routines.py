@@ -1,6 +1,6 @@
 """Farm routines: vaccinations, deworming and tick spraying.
 
-vaccination - each animal gets each of its vaccines when due (70% on time)
+vaccination - each animal gets each of the farm's vaccines when due (70% on time)
 deworming - every 90 days each species is dewormed as a group
 spraying - cattle sprayed twice a week, goats and sheep once; some weeks missed
 
@@ -23,7 +23,8 @@ SPRAY_WEEKDAYS = {2: (0, 3), 1: (2,)}
 def setup_vaccines(farm, animal):
     """Work out when each of this animal's vaccines is next due."""
     rng = farm.rng
-    for name, vaccine in VACCINES.items():
+    for name in farm.vaccines: #only the vaccines in the farm's plan
+        vaccine = VACCINES[name]
         if animal.species not in vaccine["species"]:
             continue
         first_due = animal.date_of_birth + timedelta(days=vaccine["first_dose_days"])

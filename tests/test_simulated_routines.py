@@ -4,7 +4,7 @@ from datetime import date, timedelta
 import pandas as pd
 import pytest
 
-from ml.reference import DEWORM_EVERY_DAYS, VACCINES
+from ml.reference import DEWORM_EVERY_DAYS, FARM_VACCINES, VACCINES
 from ml.simulator.farm import Animal, Farm, run
 from ml.simulator.herd import births_step, sales_step, starting_herd
 from ml.simulator.routines import (
@@ -41,10 +41,19 @@ def test_vaccines_match_the_species_and_minimum_age(health):
         assert (row.date - row.date_of_birth).days >= vaccine["first_dose_days"]
 
 
-def test_once_only_vaccines_are_never_repeated(health):
-    fowl_pox = health[health["treatment"] == "Fowl pox vaccine"]
-    assert fowl_pox["animal_id"].is_unique
+def test_only_the_farms_own_vaccines_are_given(health):
+    vaccinations = health[health["record_type"] == "VACCINATION"]
+    assert set(vaccinations["treatment"]) == set(FARM_VACCINES)
+    ccpp = vaccinations[vaccinations["treatment"] == "CCPP vaccine"]
+    assert set(ccpp["species"]) == {"GOAT"}
 
+
+def test_a_farm_with_a_different_plan_gives_those_vaccines():
+    farm = Farm(START, START + timedelta(days=400), seed=2, vaccines=["PPR vaccine"])
+    starting_herd(farm)
+    run(farm, [births_step, vaccination_step])
+    health = farm.tables()["health"]
+    assert set(health["treatment"]) == {"PPR vaccine"}
 
 def test_some_vaccinations_run_late(farm):
     # With 70% on time, some animals must be overdue at some point.
@@ -93,4 +102,3 @@ def test_same_seed_gives_the_same_records():
     first, second = simulate(seed=3).tables(), simulate(seed=3).tables()
     pd.testing.assert_frame_equal(first["health"], second["health"])
     pd.testing.assert_frame_equal(first["herd_activities"], second["herd_activities"])
-    

@@ -11,7 +11,7 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
-from ml.reference import SPECIES_INFO
+from ml.reference import FARM_VACCINES, SPECIES_INFO
 
 
 @dataclass
@@ -45,12 +45,13 @@ class Animal:
 
 class Farm:
     #Holds everything the simulation creates.
-    def __init__(self, start, end, seed=42):
+    def __init__(self, start, end, seed=42, vaccines=FARM_VACCINES):
         # One random-number generator for the whole run: the same seed
         # always gives exactly the same farm, so results can be repeated.
         self.rng = np.random.default_rng(seed)
         self.start = start
         self.end = end
+        self.vaccines = tuple(vaccines)
         self.animals = []                        # every animal ever, alive or not
         self.tag_counts = {s: 0 for s in SPECIES_INFO}
         self.breeding = []
