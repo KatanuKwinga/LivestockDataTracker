@@ -213,6 +213,18 @@ SPRAYS_PER_WEEK = {"CATTLE": 2, "GOAT": 1, "SHEEP": 1}   # chickens are not spra
 LONG_RAINS = (3, 4, 5)
 SHORT_RAINS = (10, 11, 12)
 
+# Products, as named in Kwetu's medicine log.
+SPRAY_PRODUCT = "Dip Dominex"
+DEWORMER = {"CATTLE": "Nilzan", "GOAT": "Nilzan", "SHEEP": "Nilzan", "CHICKEN": "Poultry dewormer"}
+
+# How often the routine slips (assumptions).
+VACCINE_ON_TIME_CHANCE = 0.70       # chance a due vaccine is given on its due day
+VACCINE_DELAY_DAYS = (14, 60)       # if not, the farmer tries again this many days later
+DEWORM_LATE_CHANCE = 0.20           # chance a group deworming is put off
+DEWORM_DELAY_DAYS = (14, 45)
+DEWORM_MIN_AGE_DAYS = 30            # very young animals are left out
+MISSED_SPRAY_WEEK_CHANCE = 1 / 12   # Kwetu's spray stock ran low in Aug 2026
+
 #The herd
 # Starting herd.
 # "Young" = under a year old.

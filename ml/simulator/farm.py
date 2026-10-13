@@ -5,7 +5,7 @@ a turn (births, sales, later vaccinations and illnesses), and each step
 can add animals or write records. Because everything happens in date
 order, nothing can happen to an animal after it has died or been sold.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 
 import numpy as np
@@ -29,6 +29,13 @@ class Animal:
     exit_date: date | None = None    # the day it died or was sold
     exit_reason: str | None = None   # "DIED" or "SOLD"
 
+    # Vaccine bookkeeping, one entry per vaccine name (filled in by routines.py).
+    # field(default_factory=dict) gives every animal its OWN empty dict
+    vaccine_due: dict = field(default_factory=dict)       # official due date (None = course finished)
+    vaccine_next_try: dict = field(default_factory=dict)  # when the farmer will actually do it
+    vaccine_doses: dict = field(default_factory=dict)     # doses given so far
+    vaccines_ready: bool = False                          # bookkeeping set up yet?
+
     def age_days(self, day):
         return (day - self.date_of_birth).days
 
@@ -49,6 +56,13 @@ class Farm:
         self.breeding = []
         self.mortality = []
         self.commercial = []
+        self.health = []              # health_records rows
+        self.herd_activities = []     # one row per group tick-spray session
+        # Herd-level routine state, per species (filled in by routines.py).
+        self.last_spray = {}
+        self.spray_week_missed = {}
+        self.last_deworm = {}
+        self.next_deworm = {}
 
     # Animals
 
@@ -102,6 +116,11 @@ class Farm:
                 "animal_id", "date_of_death", "age_at_death", "cause_of_death", "description"]),
             "commercial": pd.DataFrame(self.commercial, columns=[
                 "animal_id", "transaction_type", "date", "amount", "other_party", "location"]),
+            "health": pd.DataFrame(self.health, columns=[
+                "animal_id", "date", "record_type", "disease", "temperature",
+                "description", "treatment", "dosage"]),
+            "herd_activities": pd.DataFrame(self.herd_activities, columns=[
+                "date", "species", "activity", "product"]),
         }
 
 
