@@ -261,14 +261,24 @@ DECEMBER_SALE_SHARE = {"CATTLE": 0.25, "GOAT": 0.60, "SHEEP": 0.60}   # of males
 SALE_PRICE_KES = {"CATTLE": (150_000, 200_000), "GOAT": (7_000, 12_000), "SHEEP": (7_000, 12_000)}
 
 # ASSUMPTIONS
+# Chance an unprotected animal gets the condition in a year. For conditions
+# limited to young animals or to the days after giving birth, it is the
+# chance over that whole window instead (e.g. per calf, per birth).
 YEARLY_CHANCE = {"common": 0.20, "occasional": 0.05, "rare": 0.01}
 RAINS_MULTIPLIER = {"long": 1.5, "short": 1.3}
-SPRAY_LAPSE_MULTIPLIER = 3.0        # for 1-3 weeks after a missed spray week
+SPRAY_LAPSE_MULTIPLIER = 3.0        # ECF / heartwater risk after a missed spray week...
+SPRAY_LAPSE_WINDOW_DAYS = (7, 21)   # ...7-21 days later (the 1-3 week incubation)
 DEWORM_OVERDUE_MULTIPLIER = 2.0
-VACCINE_OVERDUE_MULTIPLIER = 10.0
+# Vaccine-preventable (Group A): the base chance is for an UNPROTECTED animal.
+# Up to date cuts it to 5%; overdue or not in the farm's plan leaves it as is.
 VACCINE_UP_TO_DATE_MULTIPLIER = 0.05
-OUTBREAK_BOOST_PER_CASE = 0.5       # +50% risk per recent same-species case
-OUTBREAK_DAYS = 14
+OUTBREAK_BOOST_PER_CASE = 0.25      # +25% risk per recent case of the same condition...
+OUTBREAK_DAYS = 14                  # ...in the same species, in the last 14 days
+OUTBREAK_MAX_MULTIPLIER = 3.0       # stops one outbreak from growing without limit
+RESISTANT_BREED_MULTIPLIER = 0.5    # e.g. zebu cattle and ECF
+ILLNESS_RECOVERY_DAYS = 21          # no new illness while still recovering
+FEVER_RISE = (1.0, 2.5)             # degC above normal when a fever is present
+REPEAT_TREATMENT_CHANCES = (0.25, 0.35, 0.20, 0.12, 0.08)   # 0, 1, 2, 3 or 4 follow-ups
 
 
 def daily_chance(rank):
