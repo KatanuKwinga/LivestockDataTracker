@@ -11,7 +11,7 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
-from ml.reference import FARM_VACCINES, SPECIES_INFO
+from ml.reference import FARM_VACCINES, SPECIES_INFO, FRAILTY_SPREAD 
 
 
 @dataclass
@@ -36,6 +36,7 @@ class Animal:
     vaccine_doses: dict = field(default_factory=dict)     # doses given so far
     vaccines_ready: bool = False                          # bookkeeping set up yet?
     last_illness: date | None = None                      # start of its latest illness
+    frailty: float = 1.0
 
     def age_days(self, day):
         return (day - self.date_of_birth).days
@@ -79,7 +80,8 @@ class Farm:
             animal_id=len(self.animals) + 1,
             tag_number=f"{SPECIES_INFO[species]['prefix']}{self.tag_counts[species]:03d}",
             species=species, gender=gender, breed=breed,
-            date_of_birth=date_of_birth, b_record_id=b_record_id,
+            date_of_birth=date_of_birth, b_record_id=b_record_id,         
+            frailty=float(self.rng.lognormal(-FRAILTY_SPREAD ** 2 / 2, FRAILTY_SPREAD)),
         )
         self.animals.append(animal)
         return animal

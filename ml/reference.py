@@ -289,6 +289,7 @@ RESISTANT_BREED_MULTIPLIER = 0.5    # e.g. zebu cattle and ECF
 ILLNESS_RECOVERY_DAYS = 21          # no new illness while still recovering
 FEVER_RISE = (1.0, 2.5)             # degC above normal when a fever is present
 REPEAT_TREATMENT_CHANCES = (0.25, 0.35, 0.20, 0.12, 0.08)   # 0, 1, 2, 3 or 4 follow-ups
+FRAILTY_SPREAD = 0.8                # some animals are simply more illness-prone
 WEIGH_DAYS_PER_YEAR = 2             # Kwetu rarely weighs: a couple of herd weigh days a year
 MISSED_WEIGH_CHANCE = 0.10          # animals not caught on a weigh day
 ILLNESS_WEIGHT_DROP = (0.05, 0.10)  # weight lost when weighed within 30 days of falling ill

@@ -70,7 +70,7 @@ def daily_risk(animal, condition, day, herd_m):
     multiplier, worked out once per species per day to save time."""
     if not can_get(animal, condition, day):
         return 0.0
-    risk = chance_per_day(condition) * herd_m
+    risk = chance_per_day(condition) * herd_m * animal.frailty
     if condition.vaccine and vaccine_status(animal, condition.vaccine, day) == "up_to_date":
         risk *= VACCINE_UP_TO_DATE_MULTIPLIER
     if animal.breed in condition.resistant_breeds:
