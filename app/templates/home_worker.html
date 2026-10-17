@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">{{ today }}</span>
+    <h1>{{ greeting }}, <em>{{ first_name }}</em></h1>
+    <p>What would you like to do today? You're recording for {{ current_user.farmer.name }}'s farm.</p>
+  </div>
+</div>
+
+<div class="tiles">
+  <a class="tile is-primary" href="{{ url_for('records.choose_species') }}">
+    <span class="ico"><svg class="i"><use href="#i-add"/></svg></span>
+    <div><strong>Add a record</strong><span class="desc">Register an animal, or record its health, weight, breeding or sale</span></div>
+    <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+  </a>
+  <div class="tile is-disabled" aria-disabled="true">
+    <span class="soon">Coming soon</span>
+    <span class="ico"><svg class="i"><use href="#i-records"/></svg></span>
+    <div><strong>View records</strong><span class="desc">Search the herd and open any animal's history</span></div>
+  </div>
+  <div class="tile is-disabled" aria-disabled="true">
+    <span class="soon">Coming soon</span>
+    <span class="ico"><svg class="i"><use href="#i-group"/></svg></span>
+    <div><strong>Treat a group</strong><span class="desc">Spray, deworm or vaccinate many animals at once</span></div>
+  </div>
+  <div class="tile is-disabled" aria-disabled="true">
+    <span class="soon">Coming soon</span>
+    <span class="ico"><svg class="i"><use href="#i-upload"/></svg></span>
+    <div><strong>Import a spreadsheet</strong><span class="desc">Bring in records you already keep in Excel</span></div>
+  </div>
+</div>
+
+<div class="home-grid">
+  {% include "_herd.html" %}
+</div>
+{% endblock %}

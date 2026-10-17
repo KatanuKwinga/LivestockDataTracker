@@ -1,4 +1,3 @@
-"""Tests for the Add Record flow: species and category pages."""
 from app.routes.records import CATEGORIES
 from tests.conftest import login, register_farmer
 
@@ -43,7 +42,6 @@ def test_category_page_shows_all_six_categories(client):
     page = client.get("/records/add/goat").data
 
     assert b"GOATS" in page.upper()
-    # Checked against CATEGORIES itself, so the test can't drift from the code.
     for category in CATEGORIES:
         assert category["title"].encode() in page
         assert category["blurb"].encode() in page
@@ -58,4 +56,4 @@ def test_unknown_species_is_not_found(client):
 def test_add_record_link_is_in_the_navigation(client):
     register_farmer(client)
     login(client, "farmer")
-    assert b'href="/records/add">Add Record</a>' in client.get("/dashboard").data
+    assert b'href="/records/add"' in client.get("/dashboard").data

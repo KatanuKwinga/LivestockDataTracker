@@ -1,25 +1,24 @@
 {% extends "base.html" %}
-{% from "_macros.html" import render_field %}
+{% from "_macros.html" import field, submit %}
 {% block title %}Add a worker{% endblock %}
-
 {% block content %}
-<div class="card auth-card shadow-sm">
-  <div class="card-body p-4 p-md-5">
-    <h1 class="h4 mb-1">Add a worker</h1>
-    <p class="text-secondary small mb-4">They'll log in through the <strong>Worker</strong> login with this email and password. Give them the password in person.</p>
-
-    <form method="post" novalidate>
-      {{ form.hidden_tag() }}
-      {# autocomplete="off": the farmer is typing SOMEONE ELSE's details, so
-         the browser shouldn't fill in the farmer's own name and email. #}
-      {{ render_field(form.name, autocomplete="off") }}
-      {{ render_field(form.email, type="email", autocomplete="off") }}
-      {{ render_field(form.phone, type="tel", autocomplete="off") }}
-      {{ render_field(form.password, autocomplete="new-password") }}
-      {{ render_field(form.confirm_password, autocomplete="new-password") }}
-      {{ form.submit(class="btn btn-primary w-100") }}
-    </form>
-    <div class="text-center small mt-3"><a href="{{ url_for('workers.list_workers') }}">&larr; Back to workers</a></div>
+<a class="back" href="{{ url_for('workers.list_workers') }}"><svg class="i"><use href="#i-back"/></svg>Back to workers</a>
+<div class="page-head">
+  <div>
+    <h1>Add a <em>worker</em></h1>
+    <p>They'll sign in through the Worker door with this email and password.</p>
   </div>
 </div>
+<form method="post" novalidate class="form-card">
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {{ field(form.name, autocomplete="off", help="Their full name, as you'd like it shown on records.") }}
+    {{ field(form.email, type="email", autocomplete="off", help="They'll sign in with this email. It must not already have an account.") }}
+    {{ field(form.phone, type="tel", autocomplete="off", help="So you can reach them about the herd.") }}
+    <div></div>
+    {{ field(form.password, autocomplete="new-password", help="At least 8 characters. Give it to them in person, not by text message.") }}
+    {{ field(form.confirm_password, autocomplete="new-password", help="Type the same password again.") }}
+  </div>
+  <div class="form-actions">{{ submit("Add worker") }}</div>
+</form>
 {% endblock %}

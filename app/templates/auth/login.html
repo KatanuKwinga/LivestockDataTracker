@@ -1,40 +1,30 @@
-{% extends "base.html" %}
-{% from "_macros.html" import render_field %}
-{% block title %}{{ role.capitalize() }} login{% endblock %}
-
-{% block content %}
-<div class="card auth-card shadow-sm">
-  <div class="card-body p-4 p-md-5">
-    <div class="text-center mb-4">
-      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Livestock Tracker logo" class="auth-logo mb-3">
-      <h1 class="h4 mb-1">Livestock Tracker</h1>
-      <p class="text-secondary mb-0">Log in to your {{ role }} account</p>
-    </div>
-
-    <form method="post" novalidate>
-      {{ form.hidden_tag() }}
-      {{ render_field(form.email, type="email", autocomplete="email") }}
-      {# "current-password" lets the browser's password manager fill it in. #}
-      {{ render_field(form.password, autocomplete="current-password") }}
-
-      {# "Forgot password?" sits directly under the password box and above
-         the Log in button, as in the wireframe. #}
-      <div class="text-end small mb-3 mt-n2">
-        <a href="{{ url_for('auth.reset_request') }}">Forgot password?</a>
-      </div>
-
-      {{ form.submit(class="btn btn-primary w-100") }}
-    </form>
-
-    <div class="text-center small mt-4">
-      {# Only farmers can sign up; workers are added by their farmer. #}
-      {% if role == "farmer" %}
-        New farmer? <a href="{{ url_for('auth.register') }}">Create an account</a>
-      {% else %}
-        No account yet? Ask your farmer to add you.
-      {% endif %}
-      <div class="mt-2"><a href="{{ url_for('main.index') }}">&larr; Choose a different account type</a></div>
-    </div>
+{% extends "_scene.html" %}
+{% from "_macros.html" import field, submit %}
+{% block title %}{{ role.capitalize() }} sign in{% endblock %}
+{% block panel %}
+  {# Farmer / Worker switch. Each side is a real link to that login page, so it
+     works without JavaScript; the knob slides to the current side. #}
+  <nav class="role-toggle{% if role == 'worker' %} is-worker{% endif %}" aria-label="Account type">
+    <span class="knob" aria-hidden="true"></span>
+    <a href="{{ url_for('auth.login', role='farmer', next=request.args.get('next')) }}"{% if role == 'farmer' %} aria-current="page"{% endif %}>Farmer</a>
+    <a href="{{ url_for('auth.login', role='worker', next=request.args.get('next')) }}"{% if role == 'worker' %} aria-current="page"{% endif %}>Worker</a>
+  </nav>
+  <div>
+    <h2>{{ "Welcome back" if role == "farmer" else "Worker sign in" }}</h2>
+    <p class="hint">{{ "Sign in to manage your farm, workers and reports." if role == "farmer" else "Use the email and password your farmer gave you." }}</p>
   </div>
-</div>
+  <form method="post" novalidate class="stack">
+    {{ form.hidden_tag() }}
+    {{ field(form.email, type="email", autocomplete="email", placeholder="you@example.com") }}
+    {{ field(form.password, autocomplete="current-password") }}
+    <a class="link-line" style="justify-self:end;font-size:13.5px" href="{{ url_for('auth.reset_request') }}">Forgot password?</a>
+    <div>{{ submit("Sign in", "btn-sand") }}</div>
+  </form>
+  <p class="foot">
+    {% if role == "farmer" %}
+      New to Livestock Tracker? <a class="link-line" href="{{ url_for('auth.register') }}">Register your farm</a>
+    {% else %}
+      No account yet? Ask your farmer to add you.
+    {% endif %}
+  </p>
 {% endblock %}

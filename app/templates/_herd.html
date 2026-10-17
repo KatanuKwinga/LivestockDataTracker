@@ -1,0 +1,16 @@
+{# The herd at a glance: one bar split by species, then the counts. #}
+<div class="panel">
+  <div class="panel-head">
+    <h3>The herd today</h3>
+    <span class="mono muted">{{ total }} animal{{ "" if total == 1 else "s" }}</span>
+  </div>
+  {% if total %}
+    <div class="composition" role="img" aria-label="{% for s in herd %}{{ s.label }} {{ s.count }}{{ ', ' if not loop.last }}{% endfor %}">
+      {% for s in herd if s.count %}<span class="{{ s.css }}" style="--share: {{ s.share }}%"></span>{% endfor %}    </div>
+    <div class="legend">
+      {% for s in herd %}<span><i class="dot {{ s.css }}"></i>{{ s.label }} <b class="mono">{{ s.count }}</b></span>{% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">No animals registered yet. Choose <b>Add a record</b>, pick a species, then <b>General</b> to register the first one.</p>
+  {% endif %}
+</div>

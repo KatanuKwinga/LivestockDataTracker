@@ -1,24 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Add a record{% endblock %}
-
 {% block content %}
-<h1 class="h3 mb-1">Add a record</h1>
-<p class="text-secondary mb-4">Which animals is this record about?</p>
-
-<div class="row g-3">
-  {# .items() gives each (key, value) pair: slug = "goat", species = its details. #}
+<a class="back" href="{{ url_for('main.dashboard') }}"><svg class="i"><use href="#i-back"/></svg>Home</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Add a record &middot; Step 1</span>
+    <h1>Which <em>animals?</em></h1>
+    <p>Choose the species the record is about. Tag numbers start with the letters shown.</p>
+  </div>
+</div>
+<div class="tiles">
   {% for slug, species in species_choices.items() %}
-    {# col-6 col-md-3: 2 cards per row on a phone, 4 per row on wider screens. #}
-    <div class="col-6 col-md-3">
-      <a class="card choice-card text-decoration-none h-100"
-         href="{{ url_for('records.choose_category', species_slug=slug) }}">
-        <div class="card-body text-center py-4">
-          {# aria-hidden: screen readers skip the emoji and just read the name. #}
-          <div class="choice-icon" aria-hidden="true">{{ species.icon }}</div>
-          <div class="h5 mb-0 mt-2">{{ species.label }}</div>
-        </div>
-      </a>
-    </div>
+    <a class="tile" href="{{ url_for('records.choose_category', species_slug=slug) }}">
+      <span class="tagmark" aria-hidden="true">{{ species.mark }}</span>
+      <strong>{{ species.label }}</strong>
+      <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+    </a>
   {% endfor %}
 </div>
 {% endblock %}

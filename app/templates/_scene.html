@@ -1,0 +1,29 @@
+{# Layout for the pages you see before signing in: the animated grassland,
+   a floating navbar, a headline on the left and a glass panel on the right. #}
+{% extends "base.html" %}
+{% block body %}
+<div class="scene">
+  <canvas id="meadow" aria-hidden="true"></canvas>
+  <div class="scene-shade"></div>
+  <header class="float-nav">
+    <a class="brand" href="{{ url_for('main.index') }}"><svg class="logo" aria-hidden="true"><use href="#mark"/></svg>Livestock Tracker</a>
+    {% block nav_action %}
+      <a class="btn btn-ghost-dark" href="{{ url_for('auth.register') }}">Register farm <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></a>
+    {% endblock %}
+  </header>
+  <main class="scene-body">
+    <div class="scene-copy">
+      {% block copy %}
+        <span class="eyebrow">Herd records &middot; Health &middot; Vaccinations</span>
+        <h1>Every animal,<br><em>accounted for.</em></h1>
+        <p>Keep cattle, goat, sheep and poultry records in one place, and see which animals need attention before they fall ill.</p>
+      {% endblock %}
+    </div>
+    <section class="glass on-dark">
+      {% include "_flashes.html" %}
+      {% block panel %}{% endblock %}
+    </section>
+  </main>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/meadow.js') }}"></script>{% endblock %}

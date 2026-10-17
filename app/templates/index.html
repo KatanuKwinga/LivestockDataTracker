@@ -1,33 +1,19 @@
-{% extends "base.html" %}
+{% extends "_scene.html" %}
 {% block title %}Welcome{% endblock %}
-
-{% block content %}
-<div class="text-center py-4">
-  <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Livestock Tracker logo" class="auth-logo mb-3">
-  <h1 class="h3 fw-semibold">Welcome to Livestock Tracker</h1>
-  <p class="text-secondary mb-4">Which account are you logging in to?</p>
-
-  <div class="row g-3 justify-content-center">
-    {# Each card is a link to that role's login page. "next" is passed along,
-       so after logging in you return to the page you originally asked for. #}
-    <div class="col-sm-6 col-md-4 col-lg-3">
-      <a class="card role-card text-decoration-none h-100"
-         href="{{ url_for('auth.login', role='farmer', next=request.args.get('next')) }}">
-        <div class="card-body py-4">
-          <div class="h5 mb-1">Farmer</div>
-          <div class="small text-secondary">Analytics, predictions and your workers</div>
-        </div>
-      </a>
-    </div>
-    <div class="col-sm-6 col-md-4 col-lg-3">
-      <a class="card role-card text-decoration-none h-100"
-         href="{{ url_for('auth.login', role='worker', next=request.args.get('next')) }}">
-        <div class="card-body py-4">
-          <div class="h5 mb-1">Worker</div>
-          <div class="small text-secondary">Record and update livestock data</div>
-        </div>
-      </a>
-    </div>
+{% block panel %}
+  <div>
+    <h2>Welcome</h2>
+    <p class="hint">Which account are you signing in to?</p>
   </div>
-</div>
+  <div class="role-choices">
+    <a class="role-choice" href="{{ url_for('auth.login', role='farmer', next=request.args.get('next')) }}">
+      <div><strong>Farmer</strong><span>Your herd, insights, predictions and workers</span></div>
+      <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+    </a>
+    <a class="role-choice" href="{{ url_for('auth.login', role='worker', next=request.args.get('next')) }}">
+      <div><strong>Worker</strong><span>Record health, weights, births and sales</span></div>
+      <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+    </a>
+  </div>
+  <p class="foot">New to Livestock Tracker? <a class="link-line" href="{{ url_for('auth.register') }}">Register your farm</a></p>
 {% endblock %}

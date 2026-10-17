@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">{{ today }}</span>
+    <h1>{{ greeting }}, <em>{{ first_name }}</em></h1>
+    <p>Here's an overview of your livestock.</p>
+  </div>
+  <a class="btn btn-olive" href="{{ url_for('records.choose_species') }}">Add a record <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></a>
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="label">On the farm</span><span class="num">{{ total }}</span></div>
+  {% for s in herd %}
+    <div class="stat"><span class="label"><i class="dot {{ s.css }}"></i>{{ s.label }}</span><span class="num">{{ s.count }}</span></div>
+  {% endfor %}
+</div>
+
+<div class="home-grid">
+  {% include "_herd.html" %}
+  <div class="panel">
+    <div class="panel-head"><h3>Your workers</h3><span class="mono muted">{{ worker_count }}</span></div>
+    <p class="muted">Workers record data for your farm. They can't see this page, your workers list or your predictions.</p>
+    <div class="form-actions" style="margin-top:16px">
+      <a class="btn btn-ghost btn-small" href="{{ url_for('workers.list_workers') }}">Manage workers</a>
+      <a class="btn btn-ghost btn-small" href="{{ url_for('workers.new_worker') }}">Add a worker</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

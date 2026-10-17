@@ -1,13 +1,18 @@
-{# A "macro" is a reusable piece of template, like a function. This one draws
-   one form field the Bootstrap way: label, input box, and any error messages
-   underneath in red. Written once here, it's used by every form in the app. #}
-{% macro render_field(field) %}
-  <div class="mb-3">
-    {{ field.label(class="form-label") }}
-    {# "is-invalid" turns the box red when the field has errors. #}
-    {{ field(class="form-control" + (" is-invalid" if field.errors else ""), **kwargs) }}
-    {% for error in field.errors %}
-      <div class="invalid-feedback">{{ error }}</div>
-    {% endfor %}
+{# field(): one labelled form field, with optional guidance under it and any
+   error messages. The look (boxed, or underlined on the dark sign-in panel)
+   comes from the CSS, so the same macro works on every page. #}
+{% macro field(f, help=None, wide=False) %}
+  {% set attrs = kwargs.copy() %}
+  {% if help %}{% set _ = attrs.update({"aria-describedby": f.id ~ "-help"}) %}{% endif %}
+  <div class="field{% if f.errors %} has-error{% endif %}{% if wide %} wide{% endif %}">
+    <label for="{{ f.id }}">{{ f.label.text }}</label>
+    {{ f(**attrs) }}
+    {% if help %}<span class="help" id="{{ f.id }}-help">{{ help }}</span>{% endif %}
+    {% for error in f.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
   </div>
-{% endmacro %} 
+{% endmacro %}
+
+{# submit(): the pill button with the long thin arrow. #}
+{% macro submit(label, style="btn-olive", block=False) %}
+  <button type="submit" class="btn {{ style }}{% if block %} btn-block{% endif %}">{{ label }} <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></button>
+{% endmacro %}
