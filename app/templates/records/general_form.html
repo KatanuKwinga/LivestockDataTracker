@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, submit %}
+{% block title %}{% if animal %}Edit {{ animal.tag_number }}{% else %}Register an animal{% endif %}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='general') }}"><svg class="i"><use href="#i-back"/></svg>Back to {{ species.label|lower }}</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">{{ species.label }} &middot; General</span>
+    {% if animal %}
+      <h1>Edit <em>{{ animal.tag_number }}</em></h1>
+      <p>Correct this animal's details. Its species can't be changed: if it's wrong, register the animal again under the right species.</p>
+    {% else %}
+      <h1>Register a new <em>animal</em></h1>
+      <p>Its basic details. Health, breeding and sales are recorded separately once it's registered.</p>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" novalidate class="form-card">
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {{ field(form.tag_number, class_="mono", autocomplete="off",
+             help="The number on its ear tag. We've suggested the next free one; change it if the tag says something else.") }}
+    {{ field(form.gender, help="Female or male.") }}
+    {{ field(form.breed, list="breed-options", autocomplete="off",
+             help="Pick from the list or type another. Write \"Cross\" for a mixed breed.") }}
+    {{ field(form.date_of_birth, max=today,
+             help="Leave blank if nobody knows. A close guess is fine, such as the 1st of the month it was born.") }}
+    {{ field(form.description, wide=True, rows=3,
+             help="Anything that helps someone find it: colour, markings, which pen it's in, where it came from.") }}
+  </div>
+  {# The Breed box's suggestions. The browser shows them as you type. #}
+  <datalist id="breed-options">
+    {% for breed in breeds %}<option value="{{ breed }}">{% endfor %}
+  </datalist>
+  <div class="form-actions">
+    {{ submit("Save changes" if animal else "Save animal") }}
+    <a class="btn btn-ghost" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='general') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

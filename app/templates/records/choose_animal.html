@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ species.label }}: choose an animal{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('records.choose_category', species_slug=species_slug) }}"><svg class="i"><use href="#i-back"/></svg>Back to record types</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Add a record &middot; {{ species.label }} &middot; {{ category.title }}</span>
+    <h1>Which <em>animal?</em></h1>
+    <p>
+      {% if category.key == "general" %}Register a new animal, or choose one below to correct its details.
+      {% else %}Choose the animal this record is about.{% endif %}
+    </p>
+  </div>
+</div>
+
+{% if category.key == "general" %}
+  <a class="tile is-primary tile-row" href="{{ url_for('records.general_form', species_slug=species_slug) }}">
+    <span class="ico"><svg class="i"><use href="#i-add"/></svg></span>
+    <div><strong>Register a new animal</strong><span class="desc">It will get tag <span class="mono">{{ next_tag }}</span> unless you choose another</span></div>
+    <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+  </a>
+{% endif %}
+
+<section class="panel">
+  <div class="panel-head">
+    <h3>{{ species.label }} on the farm <span class="count mono">{{ animals|length }}</span></h3>
+    {# A GET form: the search goes in the URL (?q=...), so it can be bookmarked
+       and the back button works. #}
+    <form method="get" class="search" role="search">
+      <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+      <label class="visually-hidden" for="q">Search by tag or breed</label>
+      <input id="q" name="q" type="search" value="{{ q }}" placeholder="Search tag or breed" autocomplete="off">
+      <button type="submit" class="btn btn-ghost btn-small">Search</button>
+    </form>
+  </div>
+
+  {% if animals %}
+    <ul class="animal-list">
+      {% for animal in animals %}
+        <li>
+          <a href="{{ url_for(category.endpoint, species_slug=species_slug, animal_id=animal.animal_id) }}">
+            <span class="tag mono">{{ animal.tag_number }}</span>
+            <span class="meta">
+              {{ animal.breed or "Breed not recorded" }} &middot; {{ animal.gender|title }}{% if animal.age_label %} &middot; {{ animal.age_label }}{% endif %}
+            </span>
+            <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% elif q %}
+    <p class="empty">No {{ species.label|lower }} match &ldquo;{{ q }}&rdquo;. <a href="{{ request.path }}">Show all</a></p>
+  {% else %}
+    <p class="empty">No {{ species.label|lower }} registered yet.{% if category.key == "general" %} Use &ldquo;Register a new animal&rdquo; above to add the first one.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

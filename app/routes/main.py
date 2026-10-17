@@ -5,8 +5,8 @@ from flask_login import current_user, login_required
 from sqlalchemy import func, select
 
 from app.extensions import db
-from app.farm import current_farm_id
-from app.models import CommercialInfo, Farmer, Livestock, MortalityRecord, Worker
+from app.farm import current_farm_id, still_on_farm
+from app.models import Farmer, Livestock, Worker
 
 main_bp = Blueprint("main", __name__)
 
@@ -26,12 +26,9 @@ def herd_summary(farm_id):
     Animals that have died (a mortality record) or been sold (a SELL record)
     are no longer on the farm, so they are left out. Returns a list of
     dicts for the template, and the total."""
-    dead = select(MortalityRecord.animal_id)
-    sold = select(CommercialInfo.animal_id).where(CommercialInfo.transaction_type == "SELL")
     rows = db.session.execute(
         select(Livestock.species, func.count())
-        .where(Livestock.farmer_id == farm_id,
-               Livestock.animal_id.not_in(dead), Livestock.animal_id.not_in(sold))
+        .where(Livestock.farmer_id == farm_id, still_on_farm())
         .group_by(Livestock.species)
     ).all()
     counts = dict(rows)

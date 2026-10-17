@@ -1,23 +1,13 @@
-"""Web forms.
+from datetime import date
 
-Flask-WTF gives every form two protections:
-- CSRF protection: a hidden secret token proves the form was submitted from
-  our own page, not by another website tricking the user's browser into
-  sending it.
-- Server-side validation: the rules below run on the server, so they can't be
-  skipped by editing the page or switching off JavaScript.
-"""
 from flask_wtf import FlaskForm
-from wtforms import PasswordField, StringField, SubmitField
-from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, ValidationError
+from wtforms import DateField, PasswordField, SelectField, StringField, SubmitField, TextAreaField
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, Regexp, ValidationError
 
+from app.farm import tag_in_use
 from app.models import User
 
 
-# Filters tidy what the user typed BEFORE the validators check it. Without
-# them, " jane@example.com" (with a space, which phone keyboards often add)
-# fails the email check, and "Jane@Example.com" could sign up a second time
-# next to "jane@example.com".
 def strip_spaces(value):
     return value.strip() if isinstance(value, str) else value
 
@@ -26,10 +16,12 @@ def normalise_email(value):
     return value.strip().lower() if isinstance(value, str) else value
 
 
-class FarmerRegistrationForm(FlaskForm):
-    """The only way to sign up. Workers never register themselves: a farmer
-    creates their accounts (Batch 6), so every worker belongs to a farm."""
+def normalise_tag(value):
+    """Turn " g 014 " into "G014", so one tag can't be saved twice in two spellings."""
+    return value.replace(" ", "").upper() if isinstance(value, str) else value
 
+
+class FarmerRegistrationForm(FlaskForm):
     name = StringField("Full name", filters=[strip_spaces], validators=[DataRequired(), Length(max=100)])
     email = StringField("Email", filters=[normalise_email], validators=[DataRequired(), Email(), Length(max=150)])
     phone = StringField("Phone (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=20)])
@@ -43,41 +35,26 @@ class FarmerRegistrationForm(FlaskForm):
     submit = SubmitField("Create account")
 
     def validate_email(self, field):
-        # WTForms runs any method called validate_<fieldname> automatically,
-        # so this error appears right under the email box.
         if User.query.filter_by(email=field.data).first():
             raise ValidationError("An account with this email already exists.")
 
 
-
 class LoginForm(FlaskForm):
-    # The same email filter as registration, so " Jane@Example.com " finds
-    # the account saved as "jane@example.com".
     email = StringField("Email", filters=[normalise_email], validators=[DataRequired(), Email()])
-    # No length rule here: when logging in we only check whether the
-    # password is right, not whether it would be a good new password.
     password = PasswordField("Password", validators=[DataRequired()])
     submit = SubmitField("Log in")
 
 
-
 class WorkerCreationForm(FarmerRegistrationForm):
-    """Used by a farmer to add a worker. It has exactly the same fields and
-    rules as registration (inherited), only the button text differs."""
-
     submit = SubmitField("Add worker")
 
 
-
 class RequestResetForm(FlaskForm):
-    # Deliberately NO "is this email registered?" check here: that would
-    # tell a stranger which emails have accounts. See reset_request().
     email = StringField("Email", filters=[normalise_email], validators=[DataRequired(), Email()])
     submit = SubmitField("Send reset link")
 
 
 class ResetPasswordForm(FlaskForm):
-    # The same rules as registration: 8+ characters, typed twice.
     password = PasswordField(
         "New password", validators=[DataRequired(), Length(min=8, message="Use at least 8 characters.")]
     )
@@ -86,3 +63,32 @@ class ResetPasswordForm(FlaskForm):
         validators=[DataRequired(), EqualTo("password", message="The passwords don't match.")],
     )
     submit = SubmitField("Save new password")
+
+
+class AnimalForm(FlaskForm):
+    """The General record: the animal's basic details."""
+    tag_number = StringField("Tag number", filters=[normalise_tag], validators=[
+        DataRequired(message="Every animal needs a tag number."),
+        Length(max=20),
+        Regexp(r"^[A-Z0-9-]+$", message="Use only letters, numbers and hyphens, for example G014."),
+    ])
+    gender = SelectField("Sex", choices=[("", "Choose one"), ("FEMALE", "Female"), ("MALE", "Male")],
+                         validators=[DataRequired(message="Choose female or male.")])
+    breed = StringField("Breed (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=50)])
+    date_of_birth = DateField("Date of birth (optional)", validators=[Optional()])
+    description = TextAreaField("Notes (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=500)])
+    submit = SubmitField("Save animal")
+
+    def __init__(self, farm_id, animal=None, **kwargs):
+        super().__init__(obj=animal, **kwargs)        # obj fills the boxes when editing
+        self.farm_id = farm_id
+        self.animal_id = animal.animal_id if animal else None
+
+    def validate_tag_number(self, field):
+        # When editing, the animal's own tag doesn't count as "taken".
+        if tag_in_use(self.farm_id, field.data, except_animal_id=self.animal_id):
+            raise ValidationError("Another animal on this farm already has this tag.")
+
+    def validate_date_of_birth(self, field):
+        if field.data and field.data > date.today():
+            raise ValidationError("The date of birth can't be in the future.")

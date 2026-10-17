@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ animal.tag_number }} saved{% endblock %}
+{% block content %}
+<section class="saved">
+  <span class="saved-mark" aria-hidden="true"><svg class="i"><use href="#i-check"/></svg></span>
+  <span class="eyebrow">{{ "Registered" if action == "registered" else "Changes saved" }}</span>
+  <h1><em>{{ animal.tag_number }}</em> is saved</h1>
+  <dl class="facts">
+    <div><dt>Species</dt><dd>{{ animal.species|title }}</dd></div>
+    <div><dt>Sex</dt><dd>{{ animal.gender|title }}</dd></div>
+    <div><dt>Breed</dt><dd>{{ animal.breed or "Not recorded" }}</dd></div>
+    <div><dt>Age</dt><dd>{{ animal.age_label or "Not known" }}</dd></div>
+  </dl>
+</section>
+
+<h2 class="section-title">What next?</h2>
+<div class="tiles">
+  <a class="tile is-primary" href="{{ url_for('records.general_form', species_slug=species_slug) }}">
+    <span class="ico"><svg class="i"><use href="#i-add"/></svg></span>
+    <div><strong>Register another</strong><span class="desc">Add the next one to your {{ species.label|lower }}</span></div>
+    <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+  </a>
+  <a class="tile" href="{{ url_for('records.choose_category', species_slug=species_slug) }}">
+    <span class="ico"><svg class="i"><use href="#i-records"/></svg></span>
+    <div><strong>Add another record</strong><span class="desc">Health, breeding, production or sales</span></div>
+    <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+  </a>
+  <a class="tile" href="{{ url_for('main.dashboard') }}">
+    <span class="ico"><svg class="i"><use href="#i-back"/></svg></span>
+    <div><strong>Back home</strong><span class="desc">Done for now</span></div>
+    <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+  </a>
+</div>
+{% endblock %}

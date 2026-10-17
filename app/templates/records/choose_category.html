@@ -12,7 +12,7 @@
 <div class="tiles">
   {% for category in categories %}
     {% if category.endpoint %}
-      <a class="tile" href="{{ url_for(category.endpoint, species_slug=species_slug) }}">
+      <a class="tile" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key=category.key) }}">
         <span class="ico"><svg class="i"><use href="#{{ category.icon }}"/></svg></span>
         <div><strong>{{ category.title }}</strong><span class="desc">{{ category.blurb }}</span></div>
         <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
