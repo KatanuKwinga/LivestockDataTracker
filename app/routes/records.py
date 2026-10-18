@@ -2,12 +2,11 @@ from datetime import date
 
 from flask import Blueprint, abort, redirect, render_template, request, url_for
 from flask_login import login_required
-from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.farm import (current_farm_id, farm_animals, get_farm_animal_or_404,
-                      still_on_farm, suggest_tag_number)
+                      search_animals, still_on_farm, suggest_tag_number)
 from app.forms import AnimalForm
 from app.models import Livestock
 
@@ -84,15 +83,7 @@ def choose_animal(species_slug, category_key):
     q = request.args.get("q", "").strip()
 
     animals = farm_animals().filter(Livestock.species == species["value"], still_on_farm())
-    if q:
-        # Lower-case both sides so "galla" finds "Galla". autoescape stops a
-        # typed % or _ acting as a wildcard.
-        needle = q.lower()
-        animals = animals.filter(or_(
-            func.lower(Livestock.tag_number).contains(needle, autoescape=True),
-            func.lower(Livestock.breed).contains(needle, autoescape=True),
-        ))
-    animals = animals.order_by(Livestock.tag_number).all()
+    animals = search_animals(animals, q).order_by(Livestock.tag_number).all()
 
     return render_template("records/choose_animal.html", species=species, species_slug=species_slug,
                            category=category, animals=animals, q=q,
@@ -103,8 +94,12 @@ def choose_animal(species_slug, category_key):
 @records_bp.route("/add/<species_slug>/general/<int:animal_id>", methods=["GET", "POST"])
 @login_required
 def general_form(species_slug, animal_id=None):
-    """Register a new animal, or correct an existing one's details. The animal must belong to this farm (else 404) and be of
-    the species in the URL."""
+    """Register a new animal, or correct an existing one's details.
+
+    One view does both because the form is the same; animal is None when
+    registering. The animal must belong to this farm (else 404) and be of
+    the species in the URL, so a hand-edited URL can't reach another farm's
+    animal or mix up species."""
     species = species_or_404(species_slug)
     animal = None
     if animal_id is not None:

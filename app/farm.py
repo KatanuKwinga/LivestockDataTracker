@@ -1,7 +1,7 @@
 import re
 
 from flask_login import current_user
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, or_, select, true
 
 from app.models import CommercialInfo, Livestock, MortalityRecord
 from app.models.livestock import TAG_PREFIXES
@@ -19,12 +19,41 @@ def get_farm_animal_or_404(animal_id):
     return farm_animals().filter_by(animal_id=animal_id).first_or_404()
 
 
-def still_on_farm():
-    """A filter for animals that are still on the farm. Their records are kept and not deleted when they die or are sold"""
-    dead = select(MortalityRecord.animal_id)
-    sold = select(CommercialInfo.animal_id).where(CommercialInfo.transaction_type == "SELL")
-    return and_(Livestock.animal_id.not_in(dead), Livestock.animal_id.not_in(sold))
+def dead_ids():
+    """The ids of animals that have died (they have a mortality record)."""
+    return select(MortalityRecord.animal_id)
 
+
+def sold_ids():
+    """The ids of animals that have been sold (they have a SELL record)."""
+    return select(CommercialInfo.animal_id).where(CommercialInfo.transaction_type == "SELL")
+
+
+def still_on_farm():
+    """A filter for animals that are still on the farm."""
+    return and_(Livestock.animal_id.not_in(dead_ids()), Livestock.animal_id.not_in(sold_ids()))
+
+
+def status_filter(status):
+    """A filter for the herd page's Status box: "on_farm", "sold", "died" or "all"."""
+    if status == "sold":
+        return Livestock.animal_id.in_(sold_ids())
+    if status == "died":
+        return Livestock.animal_id.in_(dead_ids())
+    if status == "all":
+        return true()
+    return still_on_farm()
+
+
+def search_animals(query, q):
+    """Narrow a Livestock query to animals whose tag or breed contains q."""
+    q = (q or "").strip().lower()
+    if not q:
+        return query
+    return query.filter(or_(
+        func.lower(Livestock.tag_number).contains(q, autoescape=True),
+        func.lower(Livestock.breed).contains(q, autoescape=True),
+    ))
 
 def tag_in_use(farm_id, tag, except_animal_id=None):
     """True if another animal on this farm already has this tag. Two different farms can both have a G001."""

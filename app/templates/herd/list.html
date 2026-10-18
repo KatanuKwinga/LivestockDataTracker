@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Records{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Records</span>
+    <h1>The <em>herd</em></h1>
+    <p>Every animal on the farm. Open one to see its full history.</p>
+  </div>
+  <a class="btn btn-olive" href="{{ url_for('records.choose_species') }}">Add a record <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></a>
+</div>
+
+{# A GET form: the filters go into the URL, so the back button and bookmarks
+   keep them. Choosing a filter starts again at page 1. #}
+<form method="get" class="filter-bar" role="search">
+  <div class="search">
+    <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+    <label class="visually-hidden" for="q">Search by tag or breed</label>
+    <input id="q" name="q" type="search" value="{{ q }}" placeholder="Search tag or breed" autocomplete="off">
+  </div>
+  <label class="visually-hidden" for="species">Species</label>
+  <select id="species" name="species" class="filter-select">
+    <option value="">All species</option>
+    {% for slug, choice in species_choices.items() %}
+      <option value="{{ slug }}"{% if slug == species_slug %} selected{% endif %}>{{ choice.label }}</option>
+    {% endfor %}
+  </select>
+  <label class="visually-hidden" for="status">Status</label>
+  <select id="status" name="status" class="filter-select">
+    {% for key, label in statuses.items() %}
+      <option value="{{ key }}"{% if key == status %} selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-ghost btn-small">Apply</button>
+  {% if filters.get("q") or filters.get("species") or status != "on_farm" %}
+    <a class="link-line clear" href="{{ url_for('herd.list_animals') }}">Clear filters</a>
+  {% endif %}
+</form>
+
+<section class="panel">
+  {% if page.items %}
+    <div class="table-wrap">
+      <table class="table rows-link">
+        <thead>
+          <tr><th>Tag</th><th>Species</th><th>Sex</th><th>Breed</th><th>Age</th><th>Status</th><th><span class="visually-hidden">Open</span></th></tr>
+        </thead>
+        <tbody>
+          {% for animal in page.items %}
+            <tr>
+              {# The tag is a real link (for keyboards and screen readers); CSS
+                 stretches it over the whole row so the row is clickable. #}
+              <td><a class="row-link mono" href="{{ url_for('herd.animal_detail', animal_id=animal.animal_id) }}">{{ animal.tag_number }}</a></td>
+              <td>{{ animal.species|title }}</td>
+              <td>{{ animal.gender|title }}</td>
+              <td>{{ animal.breed or "—" }}</td>
+              <td>{{ animal.age_label or "—" }}</td>
+              <td>{% include "herd/_status.html" %}</td>
+              <td class="go"><svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <span class="muted">Showing {{ page.first }}&ndash;{{ page.last }} of {{ page.total }}</span>
+      {% if page.pages > 1 %}
+        <nav class="pager-links" aria-label="Pages">
+          {% if page.has_prev %}<a class="btn btn-ghost btn-small" href="{{ url_for('herd.list_animals', page=page.prev_num, **filters) }}">Previous</a>{% endif %}
+          <span class="mono">Page {{ page.page }} of {{ page.pages }}</span>
+          {% if page.has_next %}<a class="btn btn-ghost btn-small" href="{{ url_for('herd.list_animals', page=page.next_num, **filters) }}">Next</a>{% endif %}
+        </nav>
+      {% endif %}
+    </div>
+  {% elif filters.get("q") or filters.get("species") or status != "on_farm" %}
+    <p class="empty">No animals match these filters. <a href="{{ url_for('herd.list_animals') }}">Clear filters</a></p>
+  {% else %}
+    <p class="empty">No animals on the farm yet. Choose <b>Add a record</b>, pick a species, then <b>General</b> to register the first one.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}{{ animal.tag_number }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('herd.list_animals') }}"><svg class="i"><use href="#i-back"/></svg>All records</a>
+
+<section class="animal-head">
+  <div class="animal-title">
+    <span class="eyebrow">{{ animal.species|title }}{% if animal.breed %} &middot; {{ animal.breed }}{% endif %}</span>
+    <h1><em>{{ animal.tag_number }}</em></h1>
+    {% include "herd/_status.html" %}
+  </div>
+  <div class="form-actions">
+    <a class="btn btn-ghost" href="{{ url_for('records.general_form', species_slug=species_slug, animal_id=animal.animal_id) }}">Edit details</a>
+    {% if animal.status == "ON_FARM" %}
+      <a class="btn btn-olive" href="{{ url_for('records.choose_category', species_slug=species_slug) }}">Add a record <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></a>
+    {% endif %}
+  </div>
+  <dl class="facts">
+    <div><dt>Sex</dt><dd>{{ animal.gender|title }}</dd></div>
+    <div><dt>Age</dt><dd>{{ animal.age_label or "Not known" }}</dd></div>
+    <div><dt>Born</dt><dd>{{ animal.date_of_birth.strftime("%d %b %Y") if animal.date_of_birth else "Not known" }}</dd></div>
+    <div><dt>Last weight</dt><dd>{{ "%g kg"|format(latest_weight.weight) if latest_weight else "Not weighed" }}</dd></div>
+    {% if animal.birth_event %}
+      <div><dt>Mother</dt><dd>{% set dam = animal.birth_event.dam %}<a href="{{ url_for('herd.animal_detail', animal_id=dam.animal_id) }}">{{ dam.tag_number }}</a></dd></div>
+      {% if animal.birth_event.sire %}
+        <div><dt>Father</dt><dd>{% set sire = animal.birth_event.sire %}<a href="{{ url_for('herd.animal_detail', animal_id=sire.animal_id) }}">{{ sire.tag_number }}</a></dd></div>
+      {% endif %}
+    {% endif %}
+  </dl>
+  {% if animal.description %}<p class="notes">{{ animal.description }}</p>{% endif %}
+</section>
+
+{# Each kind of record gets its own panel, newest first. The |reverse is
+   because the model keeps them oldest first (handy for charts later). #}
+<div class="history">
+  <section class="panel wide">
+    <div class="panel-head"><h3>Health</h3><span class="count mono">{{ animal.health_records|length }}</span></div>
+    {% if animal.health_records %}
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Date</th><th>Type</th><th>Disease</th><th>Temp.</th><th>Treatment</th></tr></thead>
+        <tbody>
+          {% for r in animal.health_records|reverse %}
+            <tr>
+              <td class="mono">{{ r.date.strftime("%d %b %Y") }}</td>
+              <td>{{ r.record_type|title }}</td>
+              <td>{{ r.disease or "—" }}</td>
+              <td class="mono">{{ "%.1f °C"|format(r.temperature) if r.temperature is not none else "—" }}</td>
+              <td>{{ r.treatment or "—" }}{% if r.dosage %} <span class="muted">({{ r.dosage }})</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}<p class="muted">No health records yet.</p>{% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h3>Weight</h3><span class="count mono">{{ animal.weight_records|length }}</span></div>
+    {% if animal.weight_records %}
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Date</th><th>Weight</th></tr></thead>
+        <tbody>
+          {% for r in animal.weight_records|reverse %}
+            <tr><td class="mono">{{ r.date.strftime("%d %b %Y") }}</td><td class="mono">{{ "%g kg"|format(r.weight) }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}<p class="muted">Not weighed yet.</p>{% endif %}
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h3>Production</h3><span class="count mono">{{ animal.production_records|length }}</span></div>
+    {% if animal.production_records %}
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Date</th><th>Product</th><th>Amount</th></tr></thead>
+        <tbody>
+          {% for r in animal.production_records|reverse %}
+            <tr><td class="mono">{{ r.date.strftime("%d %b %Y") }}</td><td>{{ r.item }}</td><td class="mono">{{ "%g"|format(r.yield_amount) }} {{ r.metric }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}<p class="muted">No production records yet.</p>{% endif %}
+  </section>
+
+  <section class="panel wide">
+    <div class="panel-head"><h3>Breeding</h3><span class="count mono">{{ breeding|length }}</span></div>
+    {% if breeding %}
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Status</th><th>{{ "Father" if animal.gender == "FEMALE" else "Mother" }}</th><th>Due</th><th>Born on</th><th>Born alive</th><th>Stillborn</th></tr></thead>
+        <tbody>
+          {% for b in breeding %}
+            {% set partner = b.sire if animal.gender == "FEMALE" else b.dam %}
+            <tr>
+              <td>{{ b.status|title }}</td>
+              <td class="mono">{% if partner %}<a href="{{ url_for('herd.animal_detail', animal_id=partner.animal_id) }}">{{ partner.tag_number }}</a>{% else %}—{% endif %}</td>
+              <td class="mono">{{ b.expected_delivery_date.strftime("%d %b %Y") if b.expected_delivery_date else "—" }}</td>
+              <td class="mono">{{ b.actual_delivery_date.strftime("%d %b %Y") if b.actual_delivery_date else "—" }}</td>
+              <td class="mono">{{ b.num_born_alive }}</td>
+              <td class="mono">{{ b.num_stillborn }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}<p class="muted">No breeding records yet.</p>{% endif %}
+  </section>
+
+  <section class="panel wide">
+    <div class="panel-head"><h3>Purchases and sales</h3><span class="count mono">{{ animal.commercial_records|length }}</span></div>
+    {% if animal.commercial_records %}
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>With</th><th>Where</th></tr></thead>
+        <tbody>
+          {% for r in animal.commercial_records|reverse %}
+            <tr>
+              <td class="mono">{{ r.date.strftime("%d %b %Y") }}</td>
+              <td>{{ "Bought" if r.transaction_type == "BUY" else "Sold" }}</td>
+              <td class="mono">KES {{ "{:,.0f}".format(r.amount) }}</td>
+              <td>{{ r.other_party or "—" }}</td>
+              <td>{{ r.location or "—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}<p class="muted">No purchases or sales recorded.</p>{% endif %}
+  </section>
+
+  {% if animal.mortality_record %}
+    {% set death = animal.mortality_record %}
+    <section class="panel wide">
+      <div class="panel-head"><h3>Death</h3></div>
+      <p><span class="mono">{{ death.date_of_death.strftime("%d %b %Y") }}</span> &middot; {{ death.cause_of_death or "Cause not recorded" }}</p>
+      {% if death.description %}<p class="muted" style="margin-top:6px">{{ death.description }}</p>{% endif %}
+    </section>
+  {% endif %}
+</div>
+{% endblock %}

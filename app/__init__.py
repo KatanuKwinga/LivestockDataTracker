@@ -47,6 +47,9 @@ def create_app(config_class=Config):
 
     from app.routes.records import records_bp
     app.register_blueprint(records_bp)
+    
+    from app.routes.herd import herd_bp
+    app.register_blueprint(herd_bp)
 
     # A context processor adds variables to EVERY template automatically.
     # Here: is_farmer, so base.html can show farmer-only links (like

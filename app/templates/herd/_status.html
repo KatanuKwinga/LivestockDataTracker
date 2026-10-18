@@ -1,0 +1,3 @@
+{# A small coloured label for where an animal is: on the farm, sold or died. #}
+{% set status_names = {"ON_FARM": "On farm", "SOLD": "Sold", "DIED": "Died"} %}
+<span class="badge badge-{{ animal.status|lower }}">{{ status_names[animal.status] }}</span>

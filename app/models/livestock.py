@@ -42,10 +42,19 @@ class Livestock(db.Model):
         if (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day):
             years -= 1
         return years
+    
+    @property
+    def status(self):
+        """"DIED", "SOLD" or "ON_FARM", worked out from the animal's records."""
+        if self.mortality_record is not None:
+            return "DIED"
+        if any(record.transaction_type == "SELL" for record in self.commercial_records):
+            return "SOLD"
+        return "ON_FARM"
 
     @property
     def age_label(self):
-        """Age in words for the pages: "12 days", "5 months" or "3 years". Young animals are counted in months"""
+        """Age in words for the pages: "12 days", "5 months" or "3 years" """
         if self.date_of_birth is None or self.date_of_birth > date.today():
             return None
         today, born = date.today(), self.date_of_birth

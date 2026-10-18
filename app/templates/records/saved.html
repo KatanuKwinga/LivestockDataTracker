@@ -11,6 +11,7 @@
     <div><dt>Breed</dt><dd>{{ animal.breed or "Not recorded" }}</dd></div>
     <div><dt>Age</dt><dd>{{ animal.age_label or "Not known" }}</dd></div>
   </dl>
+  <a class="link-line" href="{{ url_for('herd.animal_detail', animal_id=animal.animal_id) }}">Open {{ animal.tag_number }}'s full record</a>  </dl>
 </section>
 
 <h2 class="section-title">What next?</h2>

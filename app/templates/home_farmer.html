@@ -7,7 +7,10 @@
     <h1>{{ greeting }}, <em>{{ first_name }}</em></h1>
     <p>Here's an overview of your livestock.</p>
   </div>
-  <a class="btn btn-olive" href="{{ url_for('records.choose_species') }}">Add a record <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></a>
+   <div class="form-actions">
+    <a class="btn btn-ghost" href="{{ url_for('herd.list_animals') }}">View records</a>
+    <a class="btn btn-olive" href="{{ url_for('records.choose_species') }}">Add a record <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></a>
+  </div>
 </div>
 
 <div class="stats">
