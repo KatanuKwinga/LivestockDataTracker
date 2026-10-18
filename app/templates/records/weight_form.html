@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, submit %}
+{% block title %}Weight for {{ animal.tag_number }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='weight') }}"><svg class="i"><use href="#i-back"/></svg>Back to {{ species.label|lower }}</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">{{ species.label }} &middot; Weight</span>
+    <h1>Weigh <em>{{ animal.tag_number }}</em></h1>
+    <p>
+      {% if last %}Last weighed on {{ last.date.strftime("%d %b %Y") }} at <b class="mono">{{ "%g"|format(last.weight) }} kg</b>.
+      {% else %}This is its first weigh-in.{% endif %}
+    </p>
+  </div>
+</div>
+
+<form method="post" novalidate class="form-card form-narrow">
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {{ field(form.date, max=today, help="The day it was weighed.") }}
+    {{ field(form.weight, type="number", step="0.1", min="0", inputmode="decimal",
+             help="In kilograms, from the scale or weigh band.") }}
+  </div>
+  <div class="form-actions">
+    {{ submit("Save weight") }}
+    <a class="btn btn-ghost" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='weight') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

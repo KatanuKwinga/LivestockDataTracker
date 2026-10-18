@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, submit %}
+{% block title %}Health record for {{ animal.tag_number }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='health') }}"><svg class="i"><use href="#i-back"/></svg>Back to {{ species.label|lower }}</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">{{ species.label }} &middot; Health</span>
+    <h1>Health record for <em>{{ animal.tag_number }}</em></h1>
+    <p>Choose what happened first: the boxes below change to match.</p>
+  </div>
+</div>
+
+<form method="post" novalidate class="form-card">
+  {{ form.hidden_tag() }}
+
+  {# The four types as large buttons. They are real radio buttons, so the
+     form still works without JavaScript; the script only hides boxes that
+     don't apply. #}
+  <fieldset class="field segmented-field">
+    <legend>{{ form.record_type.label.text }}</legend>
+    <div class="segmented">
+      {% for option in form.record_type %}
+        <label class="seg">{{ option() }}<span>{{ option.label.text }}</span></label>
+      {% endfor %}
+    </div>
+    {% for error in form.record_type.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+  </fieldset>
+
+  <div class="form-grid">
+    {{ field(form.date, max=today, help="The day it happened. Today is filled in for you.") }}
+
+    <div class="when" data-show-for="ILLNESS TREATMENT">
+      {{ field(form.disease, list="disease-options", autocomplete="off",
+               help="Pick from the list if you can, so the same disease is always spelt the same way.") }}
+    </div>
+    <div class="when" data-show-for="VACCINATION">
+      {{ field(form.vaccine, help="Only the vaccines made for " ~ species.label|lower ~ " are listed.") }}
+    </div>
+
+    <div class="when" data-show-for="ILLNESS TREATMENT CHECKUP">
+      {{ field(form.temperature, type="number", step="0.1", inputmode="decimal",
+               help="From the thermometer, e.g. 39.5. Normal is about 38.5 to 39.5 for most livestock.") }}
+    </div>
+    <div class="when" data-show-for="ILLNESS TREATMENT CHECKUP">
+      {{ field(form.treatment, autocomplete="off",
+               help="The medicine's name. Needed for a follow-up treatment; leave blank if nothing was given yet.") }}
+    </div>
+    {{ field(form.dosage, autocomplete="off", help="How much was given, e.g. 5 ml.") }}
+
+    {{ field(form.description, wide=True, rows=3,
+             help="What you noticed: not eating, coughing, limping, how long it has been ill.") }}
+  </div>
+
+  <datalist id="disease-options">
+    {% for name in diseases %}<option value="{{ name }}">{% endfor %}
+  </datalist>
+  <div class="form-actions">
+    {{ submit("Save health record") }}
+    <a class="btn btn-ghost" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='health') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Show only the boxes for the chosen type. Hidden boxes are still sent,
+  // but the server ignores the ones that don't apply.
+  (function () {
+    var radios = document.querySelectorAll('input[name="record_type"]');
+    function update() {
+      var chosen = document.querySelector('input[name="record_type"]:checked');
+      var kind = chosen ? chosen.value : "";
+      document.querySelectorAll("[data-show-for]").forEach(function (box) {
+        box.hidden = box.dataset.showFor.split(" ").indexOf(kind) === -1;
+      });
+    }
+    radios.forEach(function (radio) { radio.addEventListener("change", update); });
+    update();
+  })();
+</script>
+{% endblock %}

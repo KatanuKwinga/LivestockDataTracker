@@ -89,7 +89,7 @@ def test_search_by_tag_or_breed(app, client):
 
 def test_categories_without_a_form_are_not_found_yet(client):
     farmer_logged_in(client)
-    assert client.get("/records/add/goat/health").status_code == 404
+    assert client.get("/records/add/goat/breeding").status_code == 404    
     assert client.get("/records/add/goat/nonsense").status_code == 404
 
 

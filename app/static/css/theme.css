@@ -336,6 +336,21 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; min-width
 .history .wide { grid-column: 1 / -1; }
 .history .panel:not(.wide) .table { min-width: 0; }   /* two-column tables fit a half-width panel */
 
+/* ---------- health and weight forms ---------- */
+.segmented-field { border: 0; margin: 0; padding: 0; min-width: 0; }
+.segmented-field legend { padding: 0; margin-bottom: 9px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--olive-700); }
+.segmented { display: flex; flex-wrap: wrap; gap: 8px; }
+.field .seg { position: relative; cursor: pointer; font-size: 14.5px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg span { display: inline-block; padding: 11px 18px; border: 1px solid var(--field-border); border-radius: 999px; background: var(--field); transition: background .2s, border-color .2s, color .2s; }
+.seg:hover span { border-color: var(--sage); }
+.seg input:checked + span { background: var(--olive-800); border-color: var(--olive-800); color: var(--sand-soft); }
+.seg input:focus-visible + span { outline: 2px solid var(--tan); outline-offset: 3px; }
+.when { display: contents; }          /* the wrapper doesn't break the two-column grid */
+.when[hidden] { display: none; }
+.form-narrow { max-width: 560px; }
+
+
 /* ---------- responsive ---------- */
 @media (max-width: 980px) {
   .scene-body { grid-template-columns: minmax(0, 1fr); padding-top: 28px; }

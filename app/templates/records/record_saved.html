@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ category.title }} record saved{% endblock %}
+{% block content %}
+<section class="saved">
+  <span class="saved-mark" aria-hidden="true"><svg class="i"><use href="#i-check"/></svg></span>
+  <span class="eyebrow">{{ category.title }} record saved</span>
+  <h1>Saved for <em>{{ animal.tag_number }}</em></h1>
+  {# The record just saved, so a mistake can be spotted straight away. #}
+  <dl class="facts">
+    <div><dt>Date</dt><dd>{{ record.date.strftime("%d %b %Y") }}</dd></div>
+    {% if category.key == "weight" %}
+      <div><dt>Weight</dt><dd>{{ "%g kg"|format(record.weight) }}</dd></div>
+    {% else %}
+      <div><dt>Type</dt><dd>{{ record.record_type|title }}</dd></div>
+      {% if record.disease %}<div><dt>Disease</dt><dd>{{ record.disease }}</dd></div>{% endif %}
+      {% if record.record_type == "VACCINATION" %}<div><dt>Vaccine</dt><dd>{{ record.treatment }}</dd></div>
+      {% elif record.treatment %}<div><dt>Medicine</dt><dd>{{ record.treatment }}</dd></div>{% endif %}
+      {% if record.temperature is not none %}<div><dt>Temperature</dt><dd>{{ "%.1f °C"|format(record.temperature) }}</dd></div>{% endif %}
+    {% endif %}
+  </dl>
+  <a class="link-line" href="{{ url_for('herd.animal_detail', animal_id=animal.animal_id) }}">Open {{ animal.tag_number }}'s full record</a>
+</section>
+
+<h2 class="section-title">What next?</h2>
+<div class="tiles">
+  <a class="tile is-primary" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key=category.key) }}">
+    <span class="ico"><svg class="i"><use href="#{{ category.icon }}"/></svg></span>
+    <div><strong>Another animal</strong><span class="desc">Add a {{ category.title|lower }} record for the next one</span></div>
+    <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+  </a>
+  <a class="tile" href="{{ url_for('records.choose_category', species_slug=species_slug) }}">
+    <span class="ico"><svg class="i"><use href="#i-records"/></svg></span>
+    <div><strong>Different record</strong><span class="desc">Choose another record type</span></div>
+    <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+  </a>
+  <a class="tile" href="{{ url_for('main.dashboard') }}">
+    <span class="ico"><svg class="i"><use href="#i-back"/></svg></span>
+    <div><strong>Back home</strong><span class="desc">Done for now</span></div>
+    <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+  </a>
+</div>
+{% endblock %}

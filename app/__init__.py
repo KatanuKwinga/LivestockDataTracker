@@ -46,6 +46,7 @@ def create_app(config_class=Config):
     app.register_blueprint(workers_bp)
 
     from app.routes.records import records_bp
+    from app.routes import record_forms  # noqa: F401  (adds the health and weight forms to records_bp)
     app.register_blueprint(records_bp)
     
     from app.routes.herd import herd_bp

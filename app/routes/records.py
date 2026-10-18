@@ -35,7 +35,8 @@ BREEDS = {
 # without one yet show as "Coming soon".
 CATEGORIES = [
     {"key": "general", "title": "General", "blurb": "Basic animal details", "icon": "i-general", "endpoint": "records.general_form"},
-    {"key": "health", "title": "Health", "blurb": "Diseases and treatments", "icon": "i-health", "endpoint": None},
+    {"key": "health", "title": "Health", "blurb": "Illness, treatment and vaccination", "icon": "i-health", "endpoint": "records.health_form"},
+    {"key": "weight", "title": "Weight", "blurb": "Weigh-ins and growth", "icon": "i-weight", "endpoint": "records.weight_form"},    
     {"key": "breeding", "title": "Breeding", "blurb": "Pregnancy and lineage", "icon": "i-breed", "endpoint": None},
     {"key": "production", "title": "Production", "blurb": "Tracking produce", "icon": "i-prod", "endpoint": None},
     {"key": "commercial", "title": "Commercial", "blurb": "Purchases and sales", "icon": "i-sale", "endpoint": None},
