@@ -8,3 +8,4 @@ from app.models.breeding import BreedingRecord
 from app.models.production import ProductionData
 from app.models.commercial import CommercialInfo
 from app.models.mortality import MortalityRecord
+from app.models.herd_activity import HerdActivity

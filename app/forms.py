@@ -1,7 +1,8 @@
 from datetime import date
 
 from flask_wtf import FlaskForm
-from wtforms import (DateField, FloatField, PasswordField, RadioField, SelectField, StringField, SubmitField, TextAreaField)
+from wtforms import (DateField, FloatField, PasswordField, RadioField, SelectField, SelectMultipleField,
+                     StringField, SubmitField, TextAreaField, widgets)
 from wtforms.validators import (DataRequired, Email, EqualTo, InputRequired, Length, NumberRange, Optional, Regexp, ValidationError)
 
 from app.farm import tag_in_use
@@ -172,3 +173,55 @@ class WeightForm(FlaskForm):
         heaviest = MAX_WEIGHT_KG[self.animal.species]
         if field.data and field.data > heaviest:
             raise ValidationError(f"That's heavier than any {self.animal.species.lower()} ({heaviest} kg). Check the reading.")
+
+
+
+class GroupForm(FlaskForm):
+    """One session of treating a group: tick spraying, deworming or vaccination."""
+    date = DateField("Date", default=date.today, validators=[DataRequired(message="Enter the date.")])
+    product = StringField("Product used", filters=[strip_spaces], validators=[Optional(), Length(max=100)])
+    vaccine = SelectField("Vaccine", choices=[])
+    animals = SelectMultipleField("Animals treated", coerce=int, choices=[],
+                                  widget=widgets.ListWidget(prefix_label=False),
+                                  option_widget=widgets.CheckboxInput())
+    notes = TextAreaField("Notes (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=500)])
+    submit = SubmitField("Save")
+
+    def __init__(self, activity_key, species, animals, **kwargs):
+        super().__init__(**kwargs)
+        self.activity_key = activity_key
+        self.by_id = {animal.animal_id: animal for animal in animals}
+        self.animals.choices = [(animal.animal_id, animal.tag_number) for animal in animals]
+        # A session uses either a vaccine (from a list) or a product (typed),
+        # never both. The unused field is removed: left in, the browser would
+        # never send it and its check would fail with no box to show why.
+        if activity_key == "vaccinate":
+            del self.product
+            self.vaccine.choices = [("", "Choose the vaccine")] + [
+                (name, name) for name, info in VACCINES.items() if species in info["species"]]
+        else:
+            del self.vaccine
+
+    def validate_date(self, field):
+        if field.data and field.data > date.today():
+            raise ValidationError("The date can't be in the future.")
+
+    def validate(self, extra_validators=None):
+        valid = super().validate(extra_validators)
+        if self.activity_key == "vaccinate" and not self.vaccine.data:
+            self.vaccine.errors.append("Choose the vaccine that was given.")
+            valid = False
+        if self.activity_key != "vaccinate" and not self.product.data:
+            self.product.errors.append("Write the product that was used.")
+            valid = False
+        if self.activity_key != "spray":
+            if not self.animals.data:
+                self.animals.errors.append("Tick at least one animal.")
+                valid = False
+            elif self.date.data:
+                unborn = [self.by_id[i].tag_number for i in self.animals.data
+                          if i in self.by_id and self.by_id[i].date_of_birth and self.by_id[i].date_of_birth > self.date.data]
+                if unborn:
+                    self.animals.errors.append(f"Not born yet on that date: {', '.join(unborn)}. Untick them.")
+                    valid = False
+        return valid

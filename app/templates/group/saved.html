@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{{ activity.title }} saved{% endblock %}
+{% block content %}
+<section class="saved">
+  <span class="saved-mark" aria-hidden="true"><svg class="i"><use href="#i-check"/></svg></span>
+  <span class="eyebrow">Session saved</span>
+  <h1>{{ activity.title }}: <em>{{ species.label|lower }}</em></h1>
+  <dl class="facts">
+    <div><dt>Date</dt><dd>{{ session.date.strftime("%d %b %Y") }}</dd></div>
+    <div><dt>{{ "Vaccine" if activity_key == "vaccinate" else "Product" }}</dt><dd>{{ session.product }}</dd></div>
+    <div><dt>Animals</dt><dd>{{ count if count is not none else "Whole herd" }}</dd></div>
+  </dl>
+  {% if session.notes %}<p class="muted">{{ session.notes }}</p>{% endif %}
+</section>
+
+<h2 class="section-title">What next?</h2>
+<div class="tiles">
+  <a class="tile is-primary" href="{{ url_for('group.index') }}">
+    <span class="ico"><svg class="i"><use href="#i-group"/></svg></span>
+    <div><strong>Another session</strong><span class="desc">Treat another herd</span></div>
+    <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+  </a>
+  <a class="tile" href="{{ url_for('herd.list_animals', species=species_slug) }}">
+    <span class="ico"><svg class="i"><use href="#i-records"/></svg></span>
+    <div><strong>See the {{ species.label|lower }}</strong><span class="desc">Open the herd's records</span></div>
+    <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+  </a>
+  <a class="tile" href="{{ url_for('main.dashboard') }}">
+    <span class="ico"><svg class="i"><use href="#i-back"/></svg></span>
+    <div><strong>Back home</strong><span class="desc">Done for now</span></div>
+    <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+  </a>
+</div>
+{% endblock %}

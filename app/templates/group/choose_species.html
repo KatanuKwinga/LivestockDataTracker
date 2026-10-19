@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ activity.title }}: choose the herd{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('group.index') }}"><svg class="i"><use href="#i-back"/></svg>Treat a group</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Treat a group &middot; {{ activity.title }}</span>
+    <h1>Which <em>herd?</em></h1>
+    <p>Choose the animals that were treated together.</p>
+  </div>
+</div>
+<div class="tiles">
+  {% for slug, species in choices %}
+    <a class="tile" href="{{ url_for('group.treat', activity_key=activity_key, species_slug=slug) }}">
+      <span class="tagmark" aria-hidden="true">{{ species.mark }}</span>
+      <div><strong>{{ species.label }}</strong><span class="desc">{{ counts[species.value] }} on the farm</span></div>
+      <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg>
+    </a>
+  {% endfor %}
+</div>
+{% endblock %}

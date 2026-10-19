@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, submit %}
+{% block title %}{{ activity.title }}: {{ species.label }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('group.choose_species', activity_key=activity_key) }}"><svg class="i"><use href="#i-back"/></svg>Back to herds</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Treat a group &middot; {{ activity.title }}</span>
+    <h1>{{ activity.title }}: <em>{{ species.label|lower }}</em></h1>
+    <p>
+      {% if activity.per_animal %}Untick any animal that was missed. Each ticked animal gets its own record.
+      {% else %}One record for the whole herd of {{ animals|length }} {{ species.label|lower }}.{% endif %}
+    </p>
+  </div>
+</div>
+
+{% if not animals %}
+  <p class="empty">There are no {{ species.label|lower }} on the farm. Register them first under <b>Add record</b>.</p>
+{% else %}
+<form method="post" novalidate class="form-card">
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {{ field(form.date, max=today, help="The day of the session. Today is filled in for you.") }}
+    {% if activity_key == "vaccinate" %}
+      {{ field(form.vaccine, help="Only the vaccines made for " ~ species.label|lower ~ " are listed.") }}
+    {% else %}
+      {{ field(form.product, autocomplete="off", help="The farm's usual product is filled in. Change it if you used another.") }}
+    {% endif %}
+  </div>
+
+  {% if activity.per_animal %}
+    <fieldset class="field check-field">
+      <legend>{{ form.animals.label.text }} <span class="count mono" id="tickedCount"></span></legend>
+      <div class="check-tools">
+        <button type="button" class="btn btn-ghost btn-small" data-tick="all">Tick all</button>
+        <button type="button" class="btn btn-ghost btn-small" data-tick="none">Untick all</button>
+      </div>
+      <div class="check-list">
+        {% for option in form.animals %}
+          {% set animal = animals[loop.index0] %}
+          <label class="check">
+            {{ option() }}
+            <span class="tag mono">{{ animal.tag_number }}</span>
+            <span class="meta">{{ animal.gender|title }}{% if animal.age_label %} &middot; {{ animal.age_label }}{% endif %}
+              {% if animal.animal_id in young %}<em>under {{ min_age }} days</em>{% endif %}</span>
+          </label>
+        {% endfor %}
+      </div>
+      {% for error in form.animals.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+    </fieldset>
+  {% endif %}
+
+  {{ field(form.notes, rows=2, help="Anything worth knowing later, e.g. which animals were missed and why.") }}
+  <div class="form-actions">
+    {{ submit("Save session") }}
+    <a class="btn btn-ghost" href="{{ url_for('group.index') }}">Cancel</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Tick all / untick all, and a live count of ticked animals. The
+  // checkboxes work without this; it only saves taps.
+  (function () {
+    var boxes = document.querySelectorAll('.check-list input[type="checkbox"]');
+    var counter = document.getElementById("tickedCount");
+    if (!boxes.length || !counter) return;
+    function count() {
+      var ticked = Array.prototype.filter.call(boxes, function (b) { return b.checked; }).length;
+      counter.textContent = ticked + " of " + boxes.length;
+    }
+    document.querySelectorAll("[data-tick]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        boxes.forEach(function (b) { b.checked = button.dataset.tick === "all"; });
+        count();
+      });
+    });
+    boxes.forEach(function (b) { b.addEventListener("change", count); });
+    count();
+  })();
+</script>
+{% endblock %}

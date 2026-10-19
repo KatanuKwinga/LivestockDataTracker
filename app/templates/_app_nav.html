@@ -2,8 +2,7 @@
    different links: each role only sees the pages it is allowed to use. #}
 {% if current_user.is_authenticated %}
     {% set links = [("main", "main.dashboard", "Home"), ("records", "records.choose_species", "Add record"),
-                  ("herd", "herd.list_animals", "Records")] %}  
-{% if is_farmer %}
+                ("group", "group.index", "Treat a group"), ("herd", "herd.list_animals", "Records")] %}{% if is_farmer %}
     {% set links = links + [("workers", "workers.list_workers", "Workers")] %}
   {% endif %}
   {% set parts = current_user.name.split() %}
