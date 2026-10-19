@@ -1,12 +1,12 @@
 from datetime import date
 
 from flask_wtf import FlaskForm
-from wtforms import (BooleanField, DateField, FloatField, PasswordField, RadioField, SelectField,
-                SelectMultipleField, StringField, SubmitField, TextAreaField, widgets)
+from wtforms import (BooleanField, DateField, FloatField, IntegerField, PasswordField, RadioField, SelectField,
+                     SelectMultipleField, StringField, SubmitField, TextAreaField, widgets)
 from wtforms.validators import (DataRequired, Email, EqualTo, InputRequired, Length, NumberRange, Optional, Regexp, ValidationError)
 
 from app.farm import tag_in_use
-from app.models import User
+from app.models import ProductionData, User
 from ml.reference import VACCINES
 
 def strip_spaces(value):
@@ -278,3 +278,98 @@ class DeathForm(FlaskForm):
 
     def validate_date_of_death(self, field):
         check_record_date(field, self.animal)
+
+
+
+class BreedingForm(FlaskForm):
+    """A breeding event for one female: she was mated (and is now expected
+    to give birth), she gave birth, or she lost the pregnancy.
+
+    A birth or a loss closes her open pregnancy record if she has one, so a
+    pregnancy and its outcome stay one breeding record. Live newborns are
+    counted here and registered as new animals by the route."""
+    
+    event = RadioField("What happened?", default="MATED", choices=[
+        ("MATED", "Mated / pregnant"), ("BIRTH", "Gave birth"), ("NO_BIRTH", "Lost the pregnancy"),
+    ], validators=[DataRequired(message="Choose what happened.")])
+    sire = SelectField("Father (optional)", choices=[])
+    mated_on = DateField("Date mated (optional)", validators=[Optional()])
+    expected_date = DateField("Expected birth date (optional)", validators=[Optional()])
+    birth_date = DateField("Date", validators=[Optional()])
+    females_born = IntegerField("Females born alive", default=0, validators=[
+        InputRequired(message="Enter a number, 0 if none."), NumberRange(min=0, max=30)])
+    males_born = IntegerField("Males born alive", default=0, validators=[
+        InputRequired(message="Enter a number, 0 if none."), NumberRange(min=0, max=30)])
+    stillborn = IntegerField("Born dead", default=0, validators=[
+        InputRequired(message="Enter a number, 0 if none."), NumberRange(min=0, max=30)])
+    submit = SubmitField("Save")
+
+    def __init__(self, dam, males, open_record, **kwargs):
+        super().__init__(**kwargs)
+        self.dam = dam
+        self.open_record = open_record
+        self.sire.choices = [("", "Not known / not on this farm")] + [
+            (str(male.animal_id), male.tag_number) for male in males]
+
+    def validate(self, extra_validators=None):
+        valid = super().validate(extra_validators)
+        event, today = self.event.data, date.today()
+
+        def problem(field, message):
+            field.errors.append(message)
+            return False
+
+        if event == "MATED":
+            if self.open_record is not None:
+                due = self.open_record.expected_delivery_date
+                valid = problem(self.event, f"{self.dam.tag_number} is already recorded as pregnant"
+                                            f"{f', due {due:%d %b %Y}' if due else ''}. Record the birth or the loss instead.")
+            if self.mated_on.data:
+                if self.mated_on.data > today:
+                    valid = problem(self.mated_on, "The date can't be in the future.")
+                elif self.dam.date_of_birth and self.mated_on.data < self.dam.date_of_birth:
+                    valid = problem(self.mated_on, f"{self.dam.tag_number} wasn't born yet on that date.")
+                if self.expected_date.data and self.expected_date.data <= self.mated_on.data:
+                    valid = problem(self.expected_date, "The birth must be after the mating.")
+        else:
+            if not self.birth_date.data:
+                valid = problem(self.birth_date, "Enter the date.")
+            else:
+                try:
+                    check_record_date(self.birth_date, self.dam)
+                except ValidationError as error:
+                    valid = problem(self.birth_date, str(error))
+            if event == "BIRTH" and self.females_born.data == 0 and self.males_born.data == 0:
+                valid = problem(self.females_born, 'No live young? Choose "Lost the pregnancy" instead.')
+        return valid
+
+
+class ProductionForm(FlaskForm):
+    """One day's milk or eggs from one female. One record per day keeps the
+    totals honest: two records for the same day would count it twice."""
+    date = DateField("Date", default=date.today, validators=[DataRequired(message="Enter the date.")])
+    amount = FloatField("Amount", validators=[
+        InputRequired(message="Enter the amount, 0 if none."),
+        NumberRange(min=0, message="The amount can't be negative."),
+    ])
+    submit = SubmitField("Save")
+
+    def __init__(self, animal, product, **kwargs):
+        super().__init__(**kwargs)
+        self.animal = animal
+        self.product = product            # e.g. {"item": "Milk", "metric": "L", "max": 60, ...}
+
+    def validate_date(self, field):
+        check_record_date(field, self.animal)
+        earlier = ProductionData.query.filter_by(animal_id=self.animal.animal_id, date=field.data,
+                                                 item=self.product["item"]).first()
+        if earlier:
+            raise ValidationError(f"{self.animal.tag_number} already has a {self.product['item'].lower()} record for "
+                                  f"{field.data:%d %b %Y} ({earlier.yield_amount:g} {earlier.metric}). Add today's total once.")
+
+    def validate_amount(self, field):
+        most = self.product["max"]
+        if field.data is not None and self.product["metric"] == "eggs" and field.data != int(field.data):
+            raise ValidationError("Count whole eggs.")
+        if field.data is not None and field.data > most:
+            raise ValidationError(f"More than {most:g} {self.product['metric']} in a day isn't likely. Check the amount.")

@@ -37,8 +37,8 @@ CATEGORIES = [
     {"key": "general", "title": "General", "blurb": "Basic animal details", "icon": "i-general", "endpoint": "records.general_form"},
     {"key": "health", "title": "Health", "blurb": "Illness, treatment and vaccination", "icon": "i-health", "endpoint": "records.health_form"},
     {"key": "weight", "title": "Weight", "blurb": "Weigh-ins and growth", "icon": "i-weight", "endpoint": "records.weight_form"},    
-    {"key": "breeding", "title": "Breeding", "blurb": "Pregnancy and lineage", "icon": "i-breed", "endpoint": None},
-    {"key": "production", "title": "Production", "blurb": "Tracking produce", "icon": "i-prod", "endpoint": None},
+    {"key": "breeding", "title": "Breeding", "blurb": "Pregnancy and births", "icon": "i-breed", "endpoint": "records.breeding_form", "females_only": True},
+    {"key": "production", "title": "Production", "blurb": "Milk and eggs", "icon": "i-prod", "endpoint": "records.production_form", "females_only": True},
     {"key": "commercial", "title": "Commercial", "blurb": "Purchases and sales", "icon": "i-sale", "endpoint": "records.commercial_form"},
     {"key": "mortality", "title": "Mortality", "blurb": "Death information", "icon": "i-loss", "endpoint": "records.mortality_form"},
 ]
@@ -84,7 +84,10 @@ def choose_animal(species_slug, category_key):
     q = request.args.get("q", "").strip()
 
     animals = farm_animals().filter(Livestock.species == species["value"], still_on_farm())
+    if category.get("females_only"):
+        animals = animals.filter(Livestock.gender == "FEMALE")
     animals = search_animals(animals, q).order_by(Livestock.tag_number).all()
+
 
     return render_template("records/choose_animal.html", species=species, species_slug=species_slug,
                            category=category, animals=animals, q=q,

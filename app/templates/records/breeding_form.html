@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, submit %}
+{% block title %}Breeding record for {{ animal.tag_number }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='breeding') }}"><svg class="i"><use href="#i-back"/></svg>Back to {{ species.label|lower }}</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">{{ species.label }} &middot; Breeding</span>
+    <h1>Breeding record for <em>{{ animal.tag_number }}</em></h1>
+    <p>
+      {% if open_record %}
+        {{ animal.tag_number }} is recorded as pregnant{% if open_record.expected_delivery_date %}, due {{ open_record.expected_delivery_date.strftime("%d %b %Y") }}{% endif %}. Record the birth or the loss.
+      {% else %}
+        Record a mating, or a birth if the pregnancy wasn't recorded.
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+<form method="post" novalidate class="form-card">
+  {{ form.hidden_tag() }}
+  <fieldset class="field segmented-field">
+    <legend>{{ form.event.label.text }}</legend>
+    <div class="segmented">
+      {% for option in form.event %}
+        <label class="seg">{{ option() }}<span>{{ option.label.text }}</span></label>
+      {% endfor %}
+    </div>
+    {% for error in form.event.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+  </fieldset>
+
+  <div class="form-grid">
+    {{ field(form.sire, help="The male she was mated with. Leave as \"Not known\" for a bull from outside or artificial insemination.") }}
+
+    <div class="when" data-show-for="MATED">
+      {{ field(form.mated_on, max=today, help="If you know it, the expected date is worked out for you (" ~ gestation ~ " days later).") }}
+    </div>
+    <div class="when" data-show-for="MATED">
+      {{ field(form.expected_date, help="Leave blank to use the date mated, or type the vet's date.") }}
+    </div>
+
+    <div class="when" data-show-for="BIRTH NO_BIRTH">
+      {{ field(form.birth_date, max=today, help="The day she gave birth, or lost the pregnancy.") }}
+    </div>
+    <div class="when" data-show-for="BIRTH">
+      {{ field(form.females_born, type="number", min="0", max="30", inputmode="numeric",
+               help="Each one is registered as a new animal with the next tag number.") }}
+    </div>
+    <div class="when" data-show-for="BIRTH">
+      {{ field(form.males_born, type="number", min="0", max="30", inputmode="numeric",
+               help="These are registered too.") }}
+    </div>
+    <div class="when" data-show-for="BIRTH NO_BIRTH">
+      {{ field(form.stillborn, type="number", min="0", max="30", inputmode="numeric",
+               help="Young born dead. They are counted, not registered.") }}
+    </div>
+  </div>
+
+  <div class="form-actions">
+    {{ submit("Save") }}
+    <a class="btn btn-ghost" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='breeding') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Show only the boxes for what happened.
+  (function () {
+    var radios = document.querySelectorAll('input[name="event"]');
+    function update() {
+      var chosen = document.querySelector('input[name="event"]:checked');
+      var kind = chosen ? chosen.value : "";
+      document.querySelectorAll("[data-show-for]").forEach(function (box) {
+        box.hidden = box.dataset.showFor.split(" ").indexOf(kind) === -1;
+      });
+    }
+    radios.forEach(function (radio) { radio.addEventListener("change", update); });
+    update();
+  })();
+</script>
+{% endblock %}

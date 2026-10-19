@@ -8,8 +8,7 @@
     <h1>Which <em>animal?</em></h1>
     <p>
       {% if category.key == "general" %}Register a new animal, or choose one below to correct its details.
-      {% else %}Choose the animal this record is about.{% endif %}
-    </p>
+      {% else %}Choose the animal this record is about.{% if category.females_only %} Only females are listed.{% endif %}{% endif %}    </p>
   </div>
 </div>
 

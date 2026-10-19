@@ -1,22 +1,36 @@
 """The forms for each kind of record about one animal"""
-from datetime import date
+from datetime import date, timedelta
 
-from flask import abort, flash, redirect, render_template, url_for
+from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
-from app.farm import get_farm_animal_or_404
-from app.forms import DeathForm, HealthForm, SaleForm, WeightForm
-from app.models import CommercialInfo, HealthRecord, MortalityRecord, WeightRecord
+from app.farm import farm_animals, get_farm_animal_or_404, suggest_tag_number
+from app.forms import BreedingForm, DeathForm, HealthForm, ProductionForm, SaleForm, WeightForm
+from app.models import (BreedingRecord, CommercialInfo, HealthRecord, Livestock, MortalityRecord,
+                        ProductionData, WeightRecord)
 from app.routes.records import CATEGORIES, SLUG_FOR, records_bp, species_or_404
-from ml.reference import CONDITIONS
+from ml.reference import CONDITIONS, GESTATION_DAYS
 
 # What happened to the animal, in words, for messages and the saved page.
 STATUS_WORDS = {"SOLD": "was sold", "DIED": "has died"}
 
 # Causes offered under the Cause of death box, on top of the species' diseases.
 OTHER_CAUSES = ["Unknown", "Old age", "Predator", "Accident", "Poisoning", "Difficult birth"]
+
+# Days from mating to birth, used to fill in the expected date. Eggs take
+# 21 days to hatch, so chickens use that.
+BIRTH_AFTER_DAYS = {**GESTATION_DAYS, "CHICKEN": 21}
+
+# What each species' females produce, and the most that is believable in a
+# day; more than that is treated as a typing mistake.
+PRODUCTS = {
+    "CATTLE": {"item": "Milk", "metric": "L", "label": "Milk in litres", "max": 60},
+    "GOAT": {"item": "Milk", "metric": "L", "label": "Milk in litres", "max": 10},
+    "SHEEP": {"item": "Milk", "metric": "L", "label": "Milk in litres", "max": 6},
+    "CHICKEN": {"item": "Eggs", "metric": "eggs", "label": "Eggs laid", "max": 2},
+}
 
 def animal_for_record(species_slug, animal_id):
     """The animal a new record is about, after three checks:
@@ -77,6 +91,109 @@ def weight_form(species_slug, animal_id):
     last = animal.weight_records[-1] if animal.weight_records else None
     return render_template("records/weight_form.html", form=form, animal=animal, species=species,
                            species_slug=species_slug, last=last, today=date.today().isoformat())
+
+def female_for_record(species_slug, animal_id):
+    """animal_for_record(), plus: the animal must be female."""
+    species, animal, leave = animal_for_record(species_slug, animal_id)
+    if leave is None and animal.gender != "FEMALE":
+        abort(404)
+    return species, animal, leave
+
+
+def newborn_breed(dam, sire):
+    """The dam's breed, or "Cross" when the father is a different breed."""
+    if sire is not None and sire.breed and dam.breed and sire.breed != dam.breed:
+        return "Cross"
+    return dam.breed or (sire.breed if sire else None)
+
+
+def register_newborns(dam, record, sire, females, males):
+    """Register each live newborn as a new animal, linked to its birth
+    (b_record_id), so its page shows its mother and father. Tags are the
+    next free numbers; they can be changed with Edit details."""
+    for gender, count in (("FEMALE", females), ("MALE", males)):
+        for _ in range(count):
+            db.session.add(Livestock(
+                farmer_id=dam.farmer_id, species=dam.species, gender=gender,
+                tag_number=suggest_tag_number(dam.farmer_id, dam.species),
+                breed=newborn_breed(dam, sire), date_of_birth=record.actual_delivery_date,
+                b_record_id=record.b_record_id, description=f"Born to {dam.tag_number}"))
+            db.session.flush()        # so the next suggest_tag_number() sees this tag
+
+
+@records_bp.route("/add/<species_slug>/breeding/<int:animal_id>", methods=["GET", "POST"])
+@login_required
+def breeding_form(species_slug, animal_id):
+    species, dam, leave = female_for_record(species_slug, animal_id)
+    if leave:
+        return leave
+
+    # Her open pregnancy, if one was recorded: a birth or loss closes it.
+    open_record = (BreedingRecord.query.filter_by(animal_id=dam.animal_id, status="EXPECTANT")
+                   .order_by(BreedingRecord.b_record_id.desc()).first())
+    males = (farm_animals().filter(Livestock.species == dam.species, Livestock.gender == "MALE")
+             .order_by(Livestock.tag_number).all())
+    form = BreedingForm(dam, males, open_record)
+    if request.method == "GET" and open_record is not None:
+        form.event.data = "BIRTH"                       # the likely next step
+        form.sire.data = str(open_record.sire_id or "")
+
+    if form.validate_on_submit():
+        event = form.event.data
+        sire_id = int(form.sire.data) if form.sire.data else None
+        if event == "MATED":
+            expected = form.expected_date.data
+            if expected is None and form.mated_on.data:
+                expected = form.mated_on.data + timedelta(days=BIRTH_AFTER_DAYS[dam.species])
+            db.session.add(BreedingRecord(animal_id=dam.animal_id, sire_id=sire_id, status="EXPECTANT",
+                                          expected_delivery_date=expected, num_stillborn=0))
+        else:
+            record = open_record
+            if record is None:                           # the pregnancy wasn't recorded first
+                record = BreedingRecord(animal_id=dam.animal_id)
+                db.session.add(record)
+            record.sire_id = sire_id or record.sire_id
+            record.status = "SUCCESSFUL BIRTH" if event == "BIRTH" else "NO BIRTH"
+            record.actual_delivery_date = form.birth_date.data
+            record.num_stillborn = form.stillborn.data
+            if event == "BIRTH":
+                db.session.flush()                       # gives a new record its id for b_record_id
+                sire = db.session.get(Livestock, record.sire_id) if record.sire_id else None
+                register_newborns(dam, record, sire, form.females_born.data, form.males_born.data)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # Someone registered an animal with one of the new tags at the
+            # same moment; nothing was saved, so it is safe to try again.
+            db.session.rollback()
+            flash("Another animal took one of the new tag numbers just now. Please save again.", "warning")
+            return redirect(request.url)
+        return redirect(url_for("records.record_saved", animal_id=dam.animal_id, category_key="breeding"))
+
+    return render_template("records/breeding_form.html", form=form, animal=dam, species=species,
+                           species_slug=species_slug, open_record=open_record,
+                           gestation=BIRTH_AFTER_DAYS[dam.species], today=date.today().isoformat())
+
+
+@records_bp.route("/add/<species_slug>/production/<int:animal_id>", methods=["GET", "POST"])
+@login_required
+def production_form(species_slug, animal_id):
+    species, animal, leave = female_for_record(species_slug, animal_id)
+    if leave:
+        return leave
+
+    product = PRODUCTS[animal.species]
+    form = ProductionForm(animal, product)
+    form.amount.label.text = product["label"]
+    if form.validate_on_submit():
+        db.session.add(ProductionData(animal_id=animal.animal_id, date=form.date.data, item=product["item"],
+                                      yield_amount=form.amount.data, metric=product["metric"]))
+        db.session.commit()
+        return redirect(url_for("records.record_saved", animal_id=animal.animal_id, category_key="production"))
+
+    last = animal.production_records[-1] if animal.production_records else None
+    return render_template("records/production_form.html", form=form, animal=animal, species=species,
+                           species_slug=species_slug, product=product, last=last, today=date.today().isoformat())
 
 
 @records_bp.route("/add/<species_slug>/commercial/<int:animal_id>", methods=["GET", "POST"])
@@ -139,6 +256,8 @@ NEWEST = {
     "weight": (WeightRecord, WeightRecord.w_record_id),
     "commercial": (CommercialInfo, CommercialInfo.transaction_id),
     "mortality": (MortalityRecord, MortalityRecord.m_record_id),
+    "breeding": (BreedingRecord, BreedingRecord.b_record_id),
+    "production": (ProductionData, ProductionData.product_id),
 }
 
 

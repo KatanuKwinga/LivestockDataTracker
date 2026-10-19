@@ -7,13 +7,27 @@
   <h1>Saved for <em>{{ animal.tag_number }}</em></h1>
   {# The record just saved, so a mistake can be spotted straight away. #}
   <dl class="facts">
-    <div><dt>Date</dt><dd>{{ (record.date_of_death if category.key == "mortality" else record.date).strftime("%d %b %Y") }}</dd></div>
+    {% if category.key != "breeding" %}
+      <div><dt>Date</dt><dd>{{ (record.date_of_death if category.key == "mortality" else record.date).strftime("%d %b %Y") }}</dd></div>
+    {% endif %}
     {% if category.key == "weight" %}
       <div><dt>Weight</dt><dd>{{ "%g kg"|format(record.weight) }}</dd></div>
     {% elif category.key == "commercial" %}
       <div><dt>Type</dt><dd>{{ "Sold" if record.transaction_type == "SELL" else "Bought" }}</dd></div>
       <div><dt>Price</dt><dd>KES {{ "{:,.0f}".format(record.amount) }}</dd></div>
       {% if record.other_party %}<div><dt>{{ "Sold to" if record.transaction_type == "SELL" else "Bought from" }}</dt><dd>{{ record.other_party }}</dd></div>{% endif %}
+    {% elif category.key == "production" %}
+      <div><dt>{{ record.item }}</dt><dd>{{ "%g"|format(record.yield_amount) }} {{ record.metric }}</dd></div>
+    {% elif category.key == "breeding" %}
+      <div><dt>Status</dt><dd>{{ record.status|title }}</dd></div>
+      {% if record.status == "EXPECTANT" %}
+        <div><dt>Due</dt><dd>{{ record.expected_delivery_date.strftime("%d %b %Y") if record.expected_delivery_date else "Not known" }}</dd></div>
+      {% else %}
+        <div><dt>Date</dt><dd>{{ record.actual_delivery_date.strftime("%d %b %Y") }}</dd></div>
+        <div><dt>Born alive</dt><dd>{{ record.num_born_alive }}</dd></div>
+        <div><dt>Born dead</dt><dd>{{ record.num_stillborn }}</dd></div>
+      {% endif %}
+      {% if record.sire %}<div><dt>Father</dt><dd>{{ record.sire.tag_number }}</dd></div>{% endif %}
     {% elif category.key == "mortality" %}
       <div><dt>Cause</dt><dd>{{ record.cause_of_death }}</dd></div>
       {% if record.age_at_death is not none %}<div><dt>Age</dt><dd>{{ record.age_at_death }} year{{ "" if record.age_at_death == 1 else "s" }}</dd></div>{% endif %}
@@ -25,6 +39,11 @@
       {% if record.temperature is not none %}<div><dt>Temperature</dt><dd>{{ "%.1f °C"|format(record.temperature) }}</dd></div>{% endif %}
     {% endif %}
   </dl>
+  {% if category.key == "breeding" and record.offspring %}
+    <p>New animals registered:
+      {% for young in record.offspring %}<a href="{{ url_for('herd.animal_detail', animal_id=young.animal_id) }}" class="mono">{{ young.tag_number }}</a>{{ ", " if not loop.last }}{% endfor %}.
+      If their ear tags say something else, open each one and use <b>Edit details</b>.</p>
+  {% endif %}
   <a class="link-line" href="{{ url_for('herd.animal_detail', animal_id=animal.animal_id) }}">Open {{ animal.tag_number }}'s full record</a>
 </section>
 
