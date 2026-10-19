@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, submit %}
+{% block title %}Death of {{ animal.tag_number }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='mortality') }}"><svg class="i"><use href="#i-back"/></svg>Back to {{ species.label|lower }}</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">{{ species.label }} &middot; Mortality</span>
+    <h1>Record the death of <em>{{ animal.tag_number }}</em></h1>
+    <p>Its records are kept, but it leaves the herd lists and can't get new records.</p>
+  </div>
+</div>
+
+<form method="post" novalidate class="form-card">
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {{ field(form.date_of_death, max=today, help="The day it died, or was found dead.") }}
+    {{ field(form.cause_of_death, list="cause-options", autocomplete="off",
+             help="Pick from the list if you can. Write \"Unknown\" if nobody knows.") }}
+    {{ field(form.description, wide=True, rows=3,
+             help="What was seen before it died, and whether a vet looked at it.") }}
+  </div>
+  <datalist id="cause-options">
+    {% for cause in causes %}<option value="{{ cause }}">{% endfor %}
+  </datalist>
+
+  <div>
+    <label class="confirm-box{% if form.confirm.errors %} has-error{% endif %}">
+      {{ form.confirm() }}
+      <span>I understand that <b>{{ animal.tag_number }}</b> will be marked as <b>dead</b> and leave the herd lists. This can't be undone on the website yet.</span>
+    </label>
+    {% for error in form.confirm.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+  </div>
+
+  <div class="form-actions">
+    {{ submit("Save") }}
+    <a class="btn btn-ghost" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='mortality') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

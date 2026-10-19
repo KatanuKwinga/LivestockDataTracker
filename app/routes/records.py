@@ -39,8 +39,8 @@ CATEGORIES = [
     {"key": "weight", "title": "Weight", "blurb": "Weigh-ins and growth", "icon": "i-weight", "endpoint": "records.weight_form"},    
     {"key": "breeding", "title": "Breeding", "blurb": "Pregnancy and lineage", "icon": "i-breed", "endpoint": None},
     {"key": "production", "title": "Production", "blurb": "Tracking produce", "icon": "i-prod", "endpoint": None},
-    {"key": "commercial", "title": "Commercial", "blurb": "Purchases and sales", "icon": "i-sale", "endpoint": None},
-    {"key": "mortality", "title": "Mortality", "blurb": "Death information", "icon": "i-loss", "endpoint": None},
+    {"key": "commercial", "title": "Commercial", "blurb": "Purchases and sales", "icon": "i-sale", "endpoint": "records.commercial_form"},
+    {"key": "mortality", "title": "Mortality", "blurb": "Death information", "icon": "i-loss", "endpoint": "records.mortality_form"},
 ]
 
 

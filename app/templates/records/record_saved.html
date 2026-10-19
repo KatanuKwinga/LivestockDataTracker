@@ -7,9 +7,16 @@
   <h1>Saved for <em>{{ animal.tag_number }}</em></h1>
   {# The record just saved, so a mistake can be spotted straight away. #}
   <dl class="facts">
-    <div><dt>Date</dt><dd>{{ record.date.strftime("%d %b %Y") }}</dd></div>
+    <div><dt>Date</dt><dd>{{ (record.date_of_death if category.key == "mortality" else record.date).strftime("%d %b %Y") }}</dd></div>
     {% if category.key == "weight" %}
       <div><dt>Weight</dt><dd>{{ "%g kg"|format(record.weight) }}</dd></div>
+    {% elif category.key == "commercial" %}
+      <div><dt>Type</dt><dd>{{ "Sold" if record.transaction_type == "SELL" else "Bought" }}</dd></div>
+      <div><dt>Price</dt><dd>KES {{ "{:,.0f}".format(record.amount) }}</dd></div>
+      {% if record.other_party %}<div><dt>{{ "Sold to" if record.transaction_type == "SELL" else "Bought from" }}</dt><dd>{{ record.other_party }}</dd></div>{% endif %}
+    {% elif category.key == "mortality" %}
+      <div><dt>Cause</dt><dd>{{ record.cause_of_death }}</dd></div>
+      {% if record.age_at_death is not none %}<div><dt>Age</dt><dd>{{ record.age_at_death }} year{{ "" if record.age_at_death == 1 else "s" }}</dd></div>{% endif %}
     {% else %}
       <div><dt>Type</dt><dd>{{ record.record_type|title }}</dd></div>
       {% if record.disease %}<div><dt>Disease</dt><dd>{{ record.disease }}</dd></div>{% endif %}

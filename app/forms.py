@@ -1,8 +1,8 @@
 from datetime import date
 
 from flask_wtf import FlaskForm
-from wtforms import (DateField, FloatField, PasswordField, RadioField, SelectField, SelectMultipleField,
-                     StringField, SubmitField, TextAreaField, widgets)
+from wtforms import (BooleanField, DateField, FloatField, PasswordField, RadioField, SelectField,
+                SelectMultipleField, StringField, SubmitField, TextAreaField, widgets)
 from wtforms.validators import (DataRequired, Email, EqualTo, InputRequired, Length, NumberRange, Optional, Regexp, ValidationError)
 
 from app.farm import tag_in_use
@@ -225,3 +225,56 @@ class GroupForm(FlaskForm):
                     self.animals.errors.append(f"Not born yet on that date: {', '.join(unborn)}. Untick them.")
                     valid = False
         return valid
+
+
+
+class SaleForm(FlaskForm):
+    """A purchase or a sale of one animal. A sale takes the animal off the farm: its status becomes SOLD and it
+    drops out of the herd lists. """
+    transaction_type = RadioField("Bought or sold?", default="SELL",
+                                  choices=[("SELL", "Sold"), ("BUY", "Bought")],
+                                  validators=[DataRequired(message="Choose bought or sold.")])
+    date = DateField("Date", default=date.today, validators=[DataRequired(message="Enter the date.")])
+    amount = FloatField("Price in KES", validators=[
+        InputRequired(message="Enter the price in KES."),
+        NumberRange(min=0, message="The price can't be negative."),
+    ])
+    other_party = StringField("Sold to / bought from (optional)", filters=[strip_spaces],
+                              validators=[Optional(), Length(max=100)])
+    location = StringField("Where (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=100)])
+    confirm = BooleanField("I understand")
+    submit = SubmitField("Save")
+
+    def __init__(self, animal, **kwargs):
+        super().__init__(**kwargs)
+        self.animal = animal
+
+    def validate_date(self, field):
+        check_record_date(field, self.animal)
+
+    def validate(self, extra_validators=None):
+        valid = super().validate(extra_validators)
+        if self.transaction_type.data == "SELL" and not self.confirm.data:
+            self.confirm.errors.append("Tick the box to confirm the sale.")
+            valid = False
+        return valid
+
+
+class DeathForm(FlaskForm):
+    """The death of one animal. Like a sale it takes the animal off the
+    farm, so it must be confirmed."""
+    date_of_death = DateField("Date of death", default=date.today,
+                              validators=[DataRequired(message="Enter the date it died.")])
+    cause_of_death = StringField("Cause of death", filters=[strip_spaces], validators=[
+        DataRequired(message='Write the cause, or "Unknown" if nobody knows.'), Length(max=100)])
+    description = TextAreaField("What happened (optional)", filters=[strip_spaces],
+                                validators=[Optional(), Length(max=500)])
+    confirm = BooleanField("I understand", validators=[DataRequired(message="Tick the box to confirm.")])
+    submit = SubmitField("Save")
+
+    def __init__(self, animal, **kwargs):
+        super().__init__(**kwargs)
+        self.animal = animal
+
+    def validate_date_of_death(self, field):
+        check_record_date(field, self.animal)
