@@ -3,14 +3,15 @@ for many animals at once."""
 from datetime import date
 
 from flask import Blueprint, abort, redirect, render_template, request, url_for
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 from app.extensions import db
 from app.farm import current_farm_id, farm_animals, still_on_farm
 from app.forms import GroupForm
-from app.models import HealthRecord, HerdActivity, Livestock
+from app.models import Farmer, HealthRecord, HerdActivity, Livestock
 from app.models.livestock import SPECIES
 from app.routes.records import SLUG_FOR, SPECIES_CHOICES
+from app.stock import add_line 
 from ml.reference import DEWORM_MIN_AGE_DAYS, DEWORMER, SPRAY_PRODUCT, SPRAYS_PER_WEEK
 
 group_bp = Blueprint("group", __name__, url_prefix="/group")
@@ -55,7 +56,7 @@ def animals_treated(session):
 
 
 def too_young_to_deworm(animal):
-    """Kwetu leaves out animals under 30 days old (DEWORM_MIN_AGE_DAYS)."""
+    """Leave out animals under 30 days old (DEWORM_MIN_AGE_DAYS)."""
     return animal.date_of_birth is not None and (date.today() - animal.date_of_birth).days < DEWORM_MIN_AGE_DAYS
 
 
@@ -94,19 +95,24 @@ def treat(activity_key, species_slug):
 
     animals = (farm_animals().filter(Livestock.species == species["value"], still_on_farm())
                .order_by(Livestock.tag_number).all())
-    form = GroupForm(activity_key, species["value"], animals)
-
+    form = GroupForm(activity_key, species["value"], animals, current_farm_id())
     if request.method == "GET":
         if activity_key == "spray":
             form.product.data = SPRAY_PRODUCT
         elif activity_key == "deworm":
             form.product.data = DEWORMER[species["value"]]
+        # Pick the pharmacy medicine whose name is in the product, e.g.
+        # Dominex for "Dip Dominex", so the usual case needs no choosing.
+        product = (form.product.data or "").lower() if activity_key != "vaccinate" else ""
+        form.medicine.data = next((key for key, item in form.pharmacy.items()
+                                   if product and item.name.lower() in product), "")
         # Everyone is ticked to start with, except animals too young to deworm.
         form.animals.data = [a.animal_id for a in animals
                              if not (activity_key == "deworm" and too_young_to_deworm(a))]
 
     if form.validate_on_submit():
-        product = form.vaccine.data if activity_key == "vaccinate" else form.product.data
+        medicine = form.chosen_medicine
+        product = form.vaccine.data if activity_key == "vaccinate" else (form.product.data or medicine.name)        
         session = HerdActivity(farmer_id=current_farm_id(), species=species["value"], date=form.date.data,
                                activity=activity["code"], product=product, notes=form.notes.data or None)
         db.session.add(session)
@@ -118,6 +124,13 @@ def treat(activity_key, species_slug):
                     record = HealthRecord(record_type="VACCINATION", treatment=product, description="Group vaccination")
                 record.animal_id, record.date = animal_id, form.date.data
                 db.session.add(record)
+        if medicine is not None:
+            # One ledger line for the whole session (e.g. 300 ml of Dominex
+            # for the herd), pointing back to it.
+            treated = len(form.animals.data) if activity["per_animal"] else len(animals)
+            add_line(medicine, "USED", form.medicine_amount.data, form.date.data, current_user.user_id,
+                     checked=isinstance(current_user, Farmer), activity=session,
+                     remarks=f"{activity['title']}, {treated} {species['label'].lower()}")
         db.session.commit()
         return redirect(url_for("group.saved", activity_id=session.activity_id))
 

@@ -47,7 +47,11 @@
                help="The medicine's name. Needed for a follow-up treatment; leave blank if nothing was given yet.") }}
     </div>
     {{ field(form.dosage, autocomplete="off", help="How much was given, e.g. 5 ml.") }}
-
+    {% if form.pharmacy %}
+      {{ field(form.medicine, help="Pick it to take it off the stock. Medicine given and Dose then fill in themselves.") }}
+      {{ field(form.medicine_amount, type="number", step="any", min="0", inputmode="decimal",
+               help="In the medicine's unit (ml, tablets...).") }}
+    {% endif %}
     {{ field(form.description, wide=True, rows=3,
              help="What you noticed: not eating, coughing, limping, how long it has been ill.") }}
   </div>

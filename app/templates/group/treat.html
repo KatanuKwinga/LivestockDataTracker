@@ -26,6 +26,11 @@
     {% else %}
       {{ field(form.product, autocomplete="off", help="The farm's usual product is filled in. Change it if you used another.") }}
     {% endif %}
+    {% if form.pharmacy %}
+      {{ field(form.medicine, help="Pick it to take it off the pharmacy stock.") }}
+      {{ field(form.medicine_amount, type="number", step="any", min="0", inputmode="decimal",
+               help="For the whole session, e.g. 300 ml for a spray.") }}
+    {% endif %}
   </div>
 
   {% if activity.per_animal %}

@@ -1,5 +1,6 @@
 from datetime import date
 
+from flask import request
 from flask_wtf import FlaskForm
 from sqlalchemy import func
 from wtforms import (BooleanField, DateField, FloatField, IntegerField, PasswordField, RadioField, SelectField,
@@ -104,7 +105,51 @@ def check_record_date(field, animal):
         raise ValidationError(f"{animal.tag_number} was born on {animal.date_of_birth:%d %b %Y}, so the date can't be earlier.")
 
 
-class HealthForm(FlaskForm):
+def add_pharmacy_choices(form, farm_id):
+    """Fill the "From the pharmacy" box with this farm's medicines.
+
+    Health records and group treatments use this so a treatment can take
+    the medicine off the pharmacy stock in the same step. When the form is
+    being saved, the rows are locked until the commit, so two people using
+    the last of a bottle at the same moment are checked one after the
+    other. (SQLite, used by the tests, ignores the lock harmlessly.)"""
+    query = PharmacyItem.query.filter_by(farmer_id=farm_id).order_by(PharmacyItem.name)
+    if request.method == "POST":
+        query = query.with_for_update()
+    form.pharmacy = {str(item.item_id): item for item in query}
+    form.medicine.choices = [("", "Not from the pharmacy")] + [
+        (key, f"{item.name} ({item.quantity:g} {item.unit} left)") for key, item in form.pharmacy.items()]
+
+
+def check_pharmacy_use(form):
+    """If a medicine was picked, an amount is needed and must be in stock.
+    Returns False (with the message under the box) if not."""
+    item = form.chosen_medicine
+    if item is None:
+        return True
+    amount = form.medicine_amount.data
+    if amount is None or amount <= 0:
+        form.medicine_amount.errors.append("Enter how much was used.")
+        return False
+    if amount > item.quantity:
+        form.medicine_amount.errors.append(f"Only {item.quantity:g} {item.unit} in stock.")
+        return False
+    return True
+
+
+class PharmacyUseMixin:
+    """The two pharmacy boxes, shared by HealthForm and GroupForm."""
+    medicine = SelectField("From the pharmacy (optional)", choices=[], default="")
+    medicine_amount = FloatField("Amount used", validators=[
+        Optional(), NumberRange(min=0, message="It can't be negative.")])
+
+    @property
+    def chosen_medicine(self):
+        """The PharmacyItem picked, or None."""
+        return self.pharmacy.get(self.medicine.data or "")
+
+
+class HealthForm(PharmacyUseMixin, FlaskForm):   
     """A health record: a new illness, a follow-up treatment, a vaccination
     or a check-up."""
     record_type = RadioField("What happened?", default="ILLNESS", choices=[
@@ -126,7 +171,8 @@ class HealthForm(FlaskForm):
     def __init__(self, animal, **kwargs):
         super().__init__(**kwargs)
         self.animal = animal
-        # Only the vaccines made for this species can be chosen.
+        add_pharmacy_choices(self, animal.farmer_id)
+        # Only the vaccines made for this species can be chosen.        # Only the vaccines made for this species can be chosen.
         self.vaccine.choices = [("", "Choose the vaccine")] + [
             (name, name) for name, info in VACCINES.items() if animal.species in info["species"]]
 
@@ -139,14 +185,13 @@ class HealthForm(FlaskForm):
         if kind in ("ILLNESS", "TREATMENT") and not self.disease.data:
             self.disease.errors.append("Write the disease or problem.")
             valid = False
-        if kind == "TREATMENT" and not self.treatment.data:
+        if kind == "TREATMENT" and not self.treatment.data and self.chosen_medicine is None:            
             self.treatment.errors.append("Write the medicine that was given.")
             valid = False
         if kind == "VACCINATION" and not self.vaccine.data:
             self.vaccine.errors.append("Choose the vaccine that was given.")
             valid = False
-        return valid
-
+        return check_pharmacy_use(self) and valid
 
 # The heaviest an animal of each species could weigh, in kg. Anything above
 # is a typing mistake (an extra zero), not a real animal.
@@ -178,7 +223,7 @@ class WeightForm(FlaskForm):
 
 
 
-class GroupForm(FlaskForm):
+class GroupForm(PharmacyUseMixin, FlaskForm):    
     """One session of treating a group: tick spraying, deworming or vaccination."""
     date = DateField("Date", default=date.today, validators=[DataRequired(message="Enter the date.")])
     product = StringField("Product used", filters=[strip_spaces], validators=[Optional(), Length(max=100)])
@@ -189,9 +234,10 @@ class GroupForm(FlaskForm):
     notes = TextAreaField("Notes (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=500)])
     submit = SubmitField("Save")
 
-    def __init__(self, activity_key, species, animals, **kwargs):
+    def __init__(self, activity_key, species, animals, farm_id, **kwargs):
         super().__init__(**kwargs)
         self.activity_key = activity_key
+        add_pharmacy_choices(self, farm_id)
         self.by_id = {animal.animal_id: animal for animal in animals}
         self.animals.choices = [(animal.animal_id, animal.tag_number) for animal in animals]
         # A session uses either a vaccine (from a list) or a product (typed),
@@ -213,7 +259,7 @@ class GroupForm(FlaskForm):
         if self.activity_key == "vaccinate" and not self.vaccine.data:
             self.vaccine.errors.append("Choose the vaccine that was given.")
             valid = False
-        if self.activity_key != "vaccinate" and not self.product.data:
+        if self.activity_key != "vaccinate" and not self.product.data and self.chosen_medicine is None:            
             self.product.errors.append("Write the product that was used.")
             valid = False
         if self.activity_key != "spray":
@@ -226,7 +272,7 @@ class GroupForm(FlaskForm):
                 if unborn:
                     self.animals.errors.append(f"Not born yet on that date: {', '.join(unborn)}. Untick them.")
                     valid = False
-        return valid
+        return check_pharmacy_use(self) and valid
 
 
 

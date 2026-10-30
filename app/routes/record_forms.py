@@ -2,15 +2,16 @@
 from datetime import date, timedelta
 
 from flask import abort, flash, redirect, render_template, request, url_for
-from flask_login import login_required
+from flask_login import current_user, login_required
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.farm import farm_animals, get_farm_animal_or_404, suggest_tag_number
 from app.forms import BreedingForm, DeathForm, HealthForm, ProductionForm, SaleForm, WeightForm
-from app.models import (BreedingRecord, CommercialInfo, HealthRecord, Livestock, MortalityRecord,
+from app.models import (BreedingRecord, CommercialInfo, HealthRecord, Farmer, Livestock, MortalityRecord,
                         ProductionData, WeightRecord)
 from app.routes.records import CATEGORIES, SLUG_FOR, records_bp, species_or_404
+from app.stock import add_line
 from ml.reference import CONDITIONS, GESTATION_DAYS
 
 # What happened to the animal, in words, for messages and the saved page.
@@ -66,6 +67,18 @@ def health_form(species_slug, animal_id):
             # A check-up isn't about a disease, so a disease typed there is dropped.
             record.disease = form.disease.data if kind in ("ILLNESS", "TREATMENT") else None
             record.treatment = form.treatment.data or None
+        medicine = form.chosen_medicine
+        if medicine is not None:
+            # Take it off the pharmacy stock in the same step, so nobody has
+            # to record the same treatment twice. The ledger line points to
+            # this health record; a worker's goes on the farmer's check list.
+            if kind != "VACCINATION" and not record.treatment:
+                record.treatment = medicine.name
+            if not record.dosage:
+                record.dosage = f"{form.medicine_amount.data:g} {medicine.unit}"
+            add_line(medicine, "USED", form.medicine_amount.data, form.date.data, current_user.user_id,
+                     checked=isinstance(current_user, Farmer), animal_id=animal.animal_id,
+                     remarks=record.disease or record.treatment or kind.title(), health_record=record)
         db.session.add(record)
         db.session.commit()
         return redirect(url_for("records.record_saved", animal_id=animal.animal_id, category_key="health"))
