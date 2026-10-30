@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, submit %}
+{# One page for the three ledger forms: a use, a delivery, a stock correction. #}
+{% block title %}{{ title }} · {{ item.name }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('pharmacy.item', item_id=item.item_id) }}"><svg class="i"><use href="#i-back"/></svg>{{ item.name }}</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">{{ item.name }} &middot; {{ "%g"|format(item.quantity) }} {{ item.unit }} in stock</span>
+    <h1>{{ title }}</h1>
+  </div>
+</div>
+
+<form method="post" novalidate class="form-card">
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {% if form.date %}{{ field(form.date, max=today) }}{% endif %}
+    {{ field(form.amount, type="number", step="any", min="0", inputmode="decimal") }}
+    {% if form.animal_id %}{{ field(form.animal_id) }}{% endif %}
+    {% if form.reason %}{{ field(form.reason, autocomplete="off", placeholder="e.g. ECF, temp 40" if form.animal_id else "e.g. expired, lent out, miscounted") }}{% endif %}
+    {% if form.cost %}
+      {{ field(form.cost, type="number", step="any", min="0", inputmode="decimal") }}
+      {{ field(form.supplier, autocomplete="off", placeholder="e.g. the agrovet") }}
+      {{ field(form.expiry_date) }}
+    {% endif %}
+  </div>
+  <div class="form-actions">
+    {{ submit("Save") }}
+    <a class="btn btn-ghost" href="{{ url_for('pharmacy.item', item_id=item.item_id) }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

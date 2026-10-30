@@ -2,7 +2,8 @@
    different links: each role only sees the pages it is allowed to use. #}
 {% if current_user.is_authenticated %}
     {% set links = [("main", "main.dashboard", "Home"), ("records", "records.choose_species", "Add record"),
-                ("group", "group.index", "Treat a group"), ("herd", "herd.list_animals", "Records")] %}{% if is_farmer %}
+                ("group", "group.index", "Treat a group"), ("herd", "herd.list_animals", "Records"),
+                ("pharmacy", "pharmacy.index", "Pharmacy")] %}{% if is_farmer %}
     {% set links = links + [("workers", "workers.list_workers", "Workers")] %}
   {% endif %}
   {% set parts = current_user.name.split() %}
@@ -11,7 +12,7 @@
     <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="navLinks"><span class="menu-lines"></span>Menu</button>
     <ul class="nav-links" id="navLinks">
       {% for section, endpoint, label in links %}
-        <li><a href="{{ url_for(endpoint) }}"{% if request.blueprint == section %} aria-current="page"{% endif %}>{{ label }}</a></li>
+        <li><a href="{{ url_for(endpoint) }}"{% if request.blueprint == section %} aria-current="page"{% endif %}>{{ label }}{% if section == "pharmacy" and pharmacy_to_check %} <span class="nav-count">{{ pharmacy_to_check }}<span class="visually-hidden"> to check</span></span>{% endif %}</a></li>
       {% endfor %}
     </ul>
     <div class="nav-user">

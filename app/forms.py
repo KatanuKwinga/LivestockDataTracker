@@ -1,12 +1,14 @@
 from datetime import date
 
 from flask_wtf import FlaskForm
+from sqlalchemy import func
 from wtforms import (BooleanField, DateField, FloatField, IntegerField, PasswordField, RadioField, SelectField,
                      SelectMultipleField, StringField, SubmitField, TextAreaField, widgets)
 from wtforms.validators import (DataRequired, Email, EqualTo, InputRequired, Length, NumberRange, Optional, Regexp, ValidationError)
 
-from app.farm import tag_in_use
-from app.models import ProductionData, User
+from app.farm import still_on_farm, tag_in_use
+from app.models import Livestock, PharmacyItem, ProductionData, User
+from app.models.pharmacy import KINDS, UNITS
 from ml.reference import VACCINES
 
 def strip_spaces(value):
@@ -373,3 +375,112 @@ class ProductionForm(FlaskForm):
             raise ValidationError("Count whole eggs.")
         if field.data is not None and field.data > most:
             raise ValidationError(f"More than {most:g} {self.product['metric']} in a day isn't likely. Check the amount.")
+
+
+class AmountField(FloatField):
+    """A FloatField that shows 50, not 50.0, when a form is filled in again."""
+    def _value(self):
+        if self.raw_data:
+            return self.raw_data[0]
+        return f"{self.data:g}" if self.data is not None else ""
+
+
+def not_in_future(form, field):
+    if field.data and field.data > date.today():
+        raise ValidationError("The date can't be in the future.")
+
+
+class MedicineForm(FlaskForm):
+    """Adding a medicine (one new page in the ledger), or editing one."""
+    name = StringField("Medicine name", filters=[strip_spaces], validators=[
+        DataRequired(message="Write the medicine's name."), Length(max=100)])
+    disease = StringField("Treats", filters=[strip_spaces], validators=[
+        DataRequired(message="Write what it treats."), Length(max=100)])
+    kind = SelectField("Type", choices=list(KINDS.items()))
+    unit = SelectField("Unit", choices=[(u, u) for u in UNITS])
+    quantity = AmountField("In stock now", validators=[
+        InputRequired(message="Enter what is on the shelf, 0 if none."), NumberRange(min=0, message="It can't be negative.")])
+    reorder_level = AmountField("Reorder at", validators=[
+        InputRequired(message="Enter when to reorder, 0 if never."), NumberRange(min=0, message="It can't be negative.")])
+    notes = TextAreaField("Notes (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=500)])
+    submit = SubmitField("Save")
+
+    def __init__(self, farm_id, item=None, **kwargs):
+        super().__init__(obj=item, **kwargs)
+        self.farm_id = farm_id
+        self.item_id = item.item_id if item else None
+        if item is not None:
+            del self.quantity            # once added, the balance only changes through ledger lines
+
+    def validate_name(self, field):
+        query = PharmacyItem.query.filter(PharmacyItem.farmer_id == self.farm_id,
+                                          func.lower(PharmacyItem.name) == field.data.lower())
+        if self.item_id is not None:
+            query = query.filter(PharmacyItem.item_id != self.item_id)
+        if query.first():
+            raise ValidationError("The pharmacy already has a medicine with this name.")
+
+
+class UseForm(FlaskForm):
+    """Some of a medicine was used: a "Used" line in its ledger."""
+    date = DateField("Date", default=date.today, validators=[DataRequired(message="Enter the date."), not_in_future])
+    amount = AmountField("Amount", validators=[
+        InputRequired(message="Enter the amount used."), NumberRange(min=0, message="It can't be negative.")])
+    animal_id = SelectField("Animal (optional)", choices=[])
+    reason = StringField("Reason", filters=[strip_spaces], validators=[
+        DataRequired(message="Say why it was used."), Length(max=200)])
+    submit = SubmitField("Save")
+
+    def __init__(self, item, **kwargs):
+        super().__init__(**kwargs)
+        self.item = item
+        self.amount.label.text = f"Amount ({item.unit})"
+        # Only this farm's animals still on the farm can be chosen, so an
+        # animal id from another farm is refused as "Not a valid choice".
+        animals = (Livestock.query.filter(Livestock.farmer_id == item.farmer_id, still_on_farm())
+                   .order_by(Livestock.species, Livestock.tag_number).all())
+        self.animal_id.choices = [("", "None / a group")] + [
+            (str(a.animal_id), f"{a.tag_number} ({a.species.lower()})") for a in animals]
+
+    def validate_amount(self, field):
+        if field.data == 0:
+            raise ValidationError("Enter more than 0.")
+        if field.data is not None and field.data > self.item.quantity:
+            raise ValidationError(f"Only {self.item.quantity:g} {self.item.unit} in stock.")
+
+    @property
+    def animal(self):
+        """The chosen animal's id as a number, or None."""
+        return int(self.animal_id.data) if self.animal_id.data else None
+
+
+class DeliveryForm(FlaskForm):
+    """New stock arrived: a "Received" line in the ledger."""
+    date = DateField("Date", default=date.today, validators=[DataRequired(message="Enter the date."), not_in_future])
+    amount = AmountField("Amount", validators=[
+        InputRequired(message="Enter the amount received."), NumberRange(min=0, message="It can't be negative.")])
+    cost = AmountField("Cost in KES (optional)", validators=[Optional(), NumberRange(min=0, message="It can't be negative.")])
+    supplier = StringField("Supplier (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=100)])
+    expiry_date = DateField("Expiry date (optional)", validators=[Optional()])
+    submit = SubmitField("Save")
+
+    def __init__(self, item, **kwargs):
+        super().__init__(**kwargs)
+        self.amount.label.text = f"Amount ({item.unit})"
+
+    def validate_amount(self, field):
+        if field.data == 0:
+            raise ValidationError("Enter more than 0.")
+
+
+class CorrectStockForm(FlaskForm):
+    """The farmer setting the balance to what is really on the shelf."""
+    amount = AmountField("On the shelf now", validators=[
+        InputRequired(message="Enter what is on the shelf, 0 if none."), NumberRange(min=0, message="It can't be negative.")])
+    reason = StringField("Reason", filters=[strip_spaces], validators=[
+        DataRequired(message="Say why, e.g. expired or lent out."), Length(max=200)])
+    submit = SubmitField("Save")
+
+    def __init__(self, item, **kwargs):
+        super().__init__(**kwargs)
+        self.amount.label.text = f"On the shelf now ({item.unit})"

@@ -1,0 +1,4 @@
+{# A medicine's stock label, in words as well as colour. #}
+{% if item.status == "OK" %}<span class="badge badge-good">In stock</span>
+{% elif item.status == "LOW" %}<span class="badge badge-warn">Low</span>
+{% else %}<span class="badge badge-bad">Out</span>{% endif %}

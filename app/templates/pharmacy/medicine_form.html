@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, submit %}
+{% block title %}{{ "Edit " ~ item.name if item else "Add a medicine" }}{% endblock %}
+{% block content %}
+{% set back_url = url_for('pharmacy.item', item_id=item.item_id) if item else url_for('pharmacy.index') %}
+<a class="back" href="{{ back_url }}"><svg class="i"><use href="#i-back"/></svg>{{ item.name if item else "Pharmacy" }}</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Pharmacy</span>
+    <h1>{% if item %}Edit <em>{{ item.name }}</em>{% else %}Add a <em>medicine</em>{% endif %}</h1>
+  </div>
+</div>
+
+<form method="post" novalidate class="form-card">
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {{ field(form.name, autocomplete="off", placeholder="e.g. Tylosin 20%") }}
+    {{ field(form.disease, list="disease-options", autocomplete="off", placeholder="e.g. Pneumonia") }}
+    {{ field(form.kind) }}
+    {{ field(form.unit) }}
+    {% if form.quantity %}
+      {{ field(form.quantity, type="number", step="any", min="0", inputmode="decimal") }}
+    {% endif %}
+    {{ field(form.reorder_level, type="number", step="any", min="0", inputmode="decimal", help="At or below this it shows as Low.") }}
+    {{ field(form.notes, wide=True, rows=2) }}
+  </div>
+  <datalist id="disease-options">{% for d in diseases %}<option value="{{ d }}">{% endfor %}</datalist>
+  <div class="form-actions">
+    {{ submit("Save") }}
+    <a class="btn btn-ghost" href="{{ back_url }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

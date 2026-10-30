@@ -9,3 +9,4 @@ from app.models.production import ProductionData
 from app.models.commercial import CommercialInfo
 from app.models.mortality import MortalityRecord
 from app.models.herd_activity import HerdActivity
+from app.models.pharmacy import PharmacyItem, StockMovement

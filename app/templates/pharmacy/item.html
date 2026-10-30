@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ item.name }}{% endblock %}
+{% block content %}
+{% set what = {"OPENING": "Opening", "USED": "Used", "RECEIVED": "Received", "CORRECTED": "Corrected", "UNDONE": "Undone"} %}
+<a class="back" href="{{ url_for('pharmacy.index') }}"><svg class="i"><use href="#i-back"/></svg>Pharmacy</a>
+
+<section class="animal-head">
+  <div class="animal-title">
+    <span class="eyebrow">{{ kinds[item.kind] }}</span>
+    <h1><em>{{ item.name }}</em></h1>
+    <div>{% include "pharmacy/_status.html" %}</div>
+  </div>
+  <div class="form-actions">
+    <a class="btn btn-olive" href="{{ url_for('pharmacy.record_use', item_id=item.item_id) }}">Record a use <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></a>
+    <a class="btn btn-ghost" href="{{ url_for('pharmacy.record_delivery', item_id=item.item_id) }}">Record a delivery</a>
+  </div>
+  <dl class="facts">
+    <div><dt>Balance</dt><dd>{{ "%g"|format(item.quantity) }} {{ item.unit }}</dd></div>
+    <div><dt>Reorder at</dt><dd>{{ "%g"|format(item.reorder_level) }} {{ item.unit }}</dd></div>
+    <div><dt>Used, last 30 days</dt><dd>{{ "%g"|format(item.used_in_last(30)) }} {{ item.unit }}</dd></div>
+    <div><dt>Treats</dt><dd>{{ item.disease }}</dd></div>
+  </dl>
+  {% if item.notes %}<p class="notes">{{ item.notes }}</p>{% endif %}
+  <div class="item-tools">
+    {% if item.reorder_asked_at %}
+      <span class="muted">Reorder asked by {{ item.reorder_asker.name.split()[0] }} on {{ item.reorder_asked_at.strftime("%d %b") }}.</span>
+    {% elif not is_farmer %}
+      <form method="post" action="{{ url_for('pharmacy.ask_reorder', item_id=item.item_id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="link-btn">Ask the farmer to reorder</button>
+      </form>
+    {% endif %}
+    {% if is_farmer %}
+      <a href="{{ url_for('pharmacy.correct_stock', item_id=item.item_id) }}">Correct the stock</a>
+      <a href="{{ url_for('pharmacy.edit_item', item_id=item.item_id) }}">Edit details</a>
+    {% endif %}
+  </div>
+</section>
+
+{# The ledger book's page: every line, newest first. #}
+<section class="panel">
+  <div class="panel-head"><h3>History <span class="count mono">{{ item.movements|length }}</span></h3></div>
+  <div class="table-wrap"><table class="table ledger">
+    <thead><tr><th>Date</th><th>What</th><th>Amount</th><th>Balance</th><th>Animal</th><th>Reason</th><th>By</th></tr></thead>
+    <tbody>
+      {% for line in item.history %}
+        <tr{% if line.undone %} class="undone"{% endif %}>
+          <td class="mono">{{ line.date.strftime("%d %b %Y") }}</td>
+          <td>{{ what[line.kind] }}</td>
+          <td class="mono">{{ "%+g"|format(line.change) }}</td>
+          <td class="mono">{{ "%g"|format(line.balance_after) }}</td>
+          <td class="mono">{% if line.animal %}<a href="{{ url_for('herd.animal_detail', animal_id=line.animal_id) }}">{{ line.animal.tag_number }}</a>{% endif %}</td>
+          <td>
+            {% if line.kind == "RECEIVED" %}
+              {{ line.supplier or "Delivery" }}{% if line.cost is not none %} &middot; KES {{ "{:,.0f}".format(line.cost) }}{% endif %}{% if line.expiry_date %} &middot; expires {{ line.expiry_date.strftime("%b %Y") }}{% endif %}
+            {% else %}{{ line.remarks or "" }}{% endif %}
+          </td>
+          <td>{{ line.user.name.split()[0] if line.user else "—" }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}

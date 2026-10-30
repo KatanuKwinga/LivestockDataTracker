@@ -22,8 +22,8 @@ def make_farmer(email="f@example.com"):
 def test_all_ten_tables_exist(app_ctx):
     expected = {
         "users", "farmers", "workers", "livestock", "weight_records", "health_records",
-        "breeding_record", "production_data", "commercial_info", "mortality_records",
-    }
+            "breeding_record", "production_data", "commercial_info", "mortality_records", "herd_activities",
+            "pharmacy_items", "stock_movements",    }
     assert expected == set(db.metadata.tables)
 
 

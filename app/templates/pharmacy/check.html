@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}To check{% endblock %}
+{% macro ok_button(name, value) %}
+  <form method="post" action="{{ url_for('pharmacy.mark_ok') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="{{ name }}" value="{{ value }}">
+    <button type="submit" class="btn btn-ghost btn-small">OK</button>
+  </form>
+{% endmacro %}
+{% block content %}
+<a class="back" href="{{ url_for('pharmacy.index') }}"><svg class="i"><use href="#i-back"/></svg>Pharmacy</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Pharmacy</span>
+    <h1>New from your <em>workers</em></h1>
+    <p>These already count. Mark each one OK, or undo it if it is wrong.</p>
+  </div>
+  {% if items or lines %}
+    <form method="post" action="{{ url_for('pharmacy.mark_ok') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="all" value="1">
+      <button type="submit" class="btn btn-olive">All OK <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></button>
+    </form>
+  {% endif %}
+</div>
+
+{% if not items and not lines and not reorders %}
+  <div class="empty">Nothing new.</div>
+{% endif %}
+
+{% if reorders %}
+  <section class="panel check-panel">
+    <div class="panel-head"><h3>Asked to reorder</h3></div>
+    <div class="table-wrap"><table class="table">
+      <tbody>
+        {% for item in reorders %}
+          <tr>
+            <td><a href="{{ url_for('pharmacy.item', item_id=item.item_id) }}">{{ item.name }}</a></td>
+            <td class="mono">{{ "%g"|format(item.quantity) }} {{ item.unit }} left</td>
+            <td>{{ item.reorder_asker.name if item.reorder_asker else "—" }}, {{ item.reorder_asked_at.strftime("%d %b") }}</td>
+            <td>
+              <form method="post" class="row-actions" action="{{ url_for('pharmacy.clear_reorder', item_id=item.item_id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-ghost btn-small">Done</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+{% endif %}
+
+{% if lines %}
+  <section class="panel check-panel">
+    <div class="panel-head"><h3>Uses and deliveries</h3></div>
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Medicine</th><th>Amount</th><th>Animal</th><th>Reason</th><th>By</th><th>Date</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+      <tbody>
+        {% for line in lines %}
+          <tr>
+            <td><a href="{{ url_for('pharmacy.item', item_id=line.item_id) }}">{{ line.item.name }}</a></td>
+            <td class="mono">{{ "%+g"|format(line.change) }} {{ line.item.unit }}</td>
+            <td class="mono">{{ line.animal.tag_number if line.animal else "" }}</td>
+            <td>{{ line.remarks or "" }}</td>
+            <td>{{ line.user.name if line.user else "—" }}</td>
+            <td class="mono">{{ line.date.strftime("%d %b") }}</td>
+            <td>
+              <div class="row-actions">
+                {{ ok_button("line_id", line.movement_id) }}
+                <form method="post" action="{{ url_for('pharmacy.undo', line_id=line.movement_id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-ghost btn-small">Undo</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+{% endif %}
+
+{% if items %}
+  <section class="panel check-panel">
+    <div class="panel-head"><h3>New medicines</h3></div>
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Medicine</th><th>In stock</th><th>Reorder at</th><th>By</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td><a href="{{ url_for('pharmacy.item', item_id=item.item_id) }}">{{ item.name }}</a></td>
+            <td class="mono">{{ "%g"|format(item.quantity) }} {{ item.unit }}</td>
+            <td class="mono">{{ "%g"|format(item.reorder_level) }} {{ item.unit }}</td>
+            <td>{{ item.adder.name if item.adder else "—" }}</td>
+            <td>
+              <div class="row-actions">
+                {{ ok_button("item_id", item.item_id) }}
+                <a class="btn btn-ghost btn-small" href="{{ url_for('pharmacy.edit_item', item_id=item.item_id) }}">Edit</a>
+                <form method="post" action="{{ url_for('pharmacy.remove_item', item_id=item.item_id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="from_check" value="1">
+                  <button type="submit" class="btn btn-ghost btn-small">Remove</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+{% endif %}
+{% endblock %}

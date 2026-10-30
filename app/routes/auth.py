@@ -1,7 +1,7 @@
 """Account pages: farmer registration, login (separate doors for farmers and
 workers, as in the wireframes) and logout. Workers and password reset are
 added in later batches."""
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 
@@ -17,14 +17,8 @@ ROLES = ("farmer", "worker")
 
 
 def is_safe_redirect(target):
-    """Only allow "next" links that stay on THIS site.
-
-    After logging in we send people back to the page they were trying to
-    open, using ?next=... in the address. Without this check, an attacker
-    could send someone a real login link ending in ?next=https://fake-site
-    and the victim would land on the fake site right after logging in.
-    A safe target starts with a single "/" (a page on our own site).
-    "//" is excluded because browsers read "//fake-site" as another website.
+    """Only allow "next" links that stay on THIS site. Prevents one from
+    receiving a fake link to another website
     """
     return bool(target) and target.startswith("/") and not target.startswith("//") and "\\" not in target
 
@@ -99,6 +93,9 @@ def login(role):
 @login_required
 def logout():
     logout_user()  # removes the account from the session cookie
+    # Empty the whole session, not just the login: otherwise unread messages
+    # meant for this person would show to the next one on a shared computer.
+    session.clear()    
     flash("You have been logged out.", "info")
     return redirect(url_for("main.index"))
 

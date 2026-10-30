@@ -55,6 +55,9 @@ def create_app(config_class=Config):
     from app.routes.group import group_bp
     app.register_blueprint(group_bp)
 
+    from app.routes.pharmacy import pharmacy_bp
+    app.register_blueprint(pharmacy_bp)
+
     # A context processor adds variables to EVERY template automatically.
     # Here: is_farmer, so base.html can show farmer-only links (like
     # "Workers") without every route having to pass it in.

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Pharmacy{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Pharmacy</span>
+    <h1>The farm <em>pharmacy</em></h1>
+    <p>Medicines in store. Open one to record a use or a delivery.</p>
+  </div>
+  <a class="btn btn-olive" href="{{ url_for('pharmacy.new_item') }}">Add medicine <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></a>
+</div>
+
+<div class="flashes">
+  {% if is_farmer and pharmacy_to_check %}
+    <div class="flash flash-info">{{ pharmacy_to_check }} new from your workers.&nbsp;<a href="{{ url_for('pharmacy.check') }}">Check</a></div>
+  {% endif %}
+  {% if out %}<div class="flash flash-danger">Out: {{ out|join(", ") }}.</div>{% endif %}
+  {% if low %}<div class="flash flash-warning">Low: {{ low|join(", ") }}.</div>{% endif %}
+</div>
+
+{% if items %}
+  <section class="panel">
+    <div class="table-wrap">
+      <table class="table rows-link">
+        <thead><tr><th>Medicine</th><th>Balance</th><th>Status</th><th>Treats</th></tr></thead>
+        <tbody>
+          {% for item in items %}
+            <tr>
+              <td><a class="row-link" href="{{ url_for('pharmacy.item', item_id=item.item_id) }}">{{ item.name }}</a></td>
+              <td class="mono">{{ "%g"|format(item.quantity) }} {{ item.unit }}</td>
+              <td>{% include "pharmacy/_status.html" %}</td>
+              <td>{{ item.disease }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% else %}
+  <div class="empty">No medicines yet.</div>
+{% endif %}
+{% endblock %}

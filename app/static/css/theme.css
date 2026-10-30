@@ -372,6 +372,23 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; min-width
 .confirm-box.has-error { border-color: var(--bad); }
 .confirm-box + .field-error { display: block; margin-top: 6px; font-size: 13px; color: var(--bad); }
 
+/* ---------- pharmacy ---------- */
+.badge-good { background: var(--good-bg); color: var(--good); }
+.badge-warn { background: var(--warn-bg); color: var(--warn); }
+.badge-bad { background: var(--bad-bg); color: var(--bad); }
+.nav-count { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  background: var(--warn-bg); color: var(--warn); font-family: var(--mono); font-size: 11.5px; }
+.flashes a { color: inherit; font-weight: 600; }
+.item-tools { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; font-size: 14px; }
+.item-tools form { margin: 0; }
+.item-tools a, .link-btn { color: var(--olive-700); font-weight: 500; }
+.link-btn { font: inherit; font-weight: 500; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
+.ledger td:nth-child(3), .ledger td:nth-child(4), .ledger th:nth-child(3), .ledger th:nth-child(4) { text-align: right; }   /* numbers line up like the book */
+.ledger tr.undone td { color: var(--ink-soft); text-decoration: line-through; }
+.check-panel { margin-bottom: 16px; }
+.row-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.row-actions form { margin: 0; }
+
 /* ---------- responsive ---------- */
 @media (max-width: 980px) {
   .scene-body { grid-template-columns: minmax(0, 1fr); padding-top: 28px; }
