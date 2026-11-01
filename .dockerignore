@@ -1,0 +1,13 @@
+# Files Docker leaves out when it copies the project into the image.
+# Your Windows virtual environment: the image installs its own libraries.
+venv/
+.venv/
+# Secrets stay out of the image; docker-compose.yml passes them in instead.
+.env
+# Git history, caches and local databases aren't needed to run the app.
+.git/
+__pycache__/
+*.pyc
+.pytest_cache/
+instance/
+*.db

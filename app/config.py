@@ -19,7 +19,10 @@ def _engine_options(database_url):
     # Encrypt the connection to Supabase so the password and data can't be
     # read on the way. pg8000 takes this as an "SSL context" object rather
     # than the ?sslmode=require text some other drivers read from the URL.
-    if database_url and database_url.startswith("postgresql+pg8000"):
+    # The local PostgreSQL in Docker doesn't use SSL, so docker-compose.yml
+    # sets DATABASE_SSL=false for it.
+    use_ssl = os.environ.get("DATABASE_SSL", "true").lower() == "true"
+    if database_url and database_url.startswith("postgresql+pg8000") and use_ssl:
         ssl_context = ssl.create_default_context()
         # Encrypt, but don't check the server's certificate against a list of
         # trusted authorities: Supabase signs it with its own authority, which

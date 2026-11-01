@@ -1,0 +1,58 @@
+# Starts the whole project with one command:  docker compose up
+#
+# Two containers ("services"):
+#   db   a PostgreSQL database just for development and the ML work. It is
+#        local and throwaway; the real data lives in Supabase, as the brief
+#        requires.
+#   web  the Flask app, built from the Dockerfile in this folder.
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      # Only for this local database, never used for Supabase.
+      POSTGRES_USER: livestock
+      POSTGRES_PASSWORD: livestock
+      POSTGRES_DB: livestock
+    volumes:
+      # Keeps the data when the container stops. "docker compose down -v"
+      # deletes it, giving an empty database again.
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Lets HeidiSQL on your laptop open it at localhost, port 5433
+      # (5433 so it can't clash with any other PostgreSQL on 5432).
+      - "5433:5432"
+    healthcheck:
+      # "Is the database ready to accept connections?" The web app waits
+      # for a yes before starting.
+      test: ["CMD-SHELL", "pg_isready -U livestock -d livestock"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  web:
+    build: .
+    # Your secrets (SECRET_KEY, Gmail settings) come from .env as usual...
+    env_file: .env
+    # ...but these win over .env, so the app uses the local database and
+    # never touches Supabase while running in Docker.
+    environment:
+      DATABASE_URL: postgresql+pg8000://livestock:livestock@db:5432/livestock
+      DATABASE_SSL: "false"
+      FLASK_APP: run.py
+    ports:
+      # http://localhost:5000 on your laptop reaches the app in the container.
+      - "5000:5000"
+    volumes:
+      # Your project folder appears inside the container as /app, so code
+      # you save in VS Code is used straight away, without rebuilding.
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    # Bring the database's tables up to date, then start the app with
+    # --debug so it reloads when you save a file.
+    command: sh -c "flask db upgrade && flask run --host=0.0.0.0 --port=5000 --debug"
+
+volumes:
+  pgdata:
