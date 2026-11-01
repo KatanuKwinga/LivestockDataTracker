@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('main.dashboard') }}"><svg class="i"><use href="#i-back"/></svg>Home</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Health &middot; {{ s.state }}</span>
+    <h1>Unwell <em>animals</em></h1>
+    <p>Animals with an illness or treatment recorded in the last {{ unwell_days }} days.</p>
+  </div>
+</div>
+{% if s.records %}
+  <section class="panel"><div class="table-wrap"><table class="table rows-link">
+    <thead><tr><th>Animal</th><th>Since</th><th>Disease</th><th>Temp.</th><th>Treatment</th></tr></thead>
+    <tbody>
+      {% for r in s.records %}
+        <tr>
+          <td><a class="row-link mono" href="{{ url_for('herd.animal_detail', animal_id=r.animal_id) }}">{{ r.animal.tag_number }}</a></td>
+          <td class="mono">{{ r.date.strftime("%d %b %Y") }}</td>
+          <td>{{ r.disease or "—" }}</td>
+          <td class="mono">{{ "%.1f"|format(r.temperature) if r.temperature else "—" }}</td>
+          <td>{{ r.treatment or "None yet" }}{% if r.dosage %} &middot; {{ r.dosage }}{% endif %}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table></div></section>
+{% else %}
+  <div class="empty">No animal is ill or under treatment.</div>
+{% endif %}
+{% endblock %}

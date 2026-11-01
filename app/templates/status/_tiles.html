@@ -1,0 +1,67 @@
+{# The six farm statuses the farm asked for, each a tile that opens its details. #}
+{% from "status/_macros.html" import when, tags %}
+{% set SPECIES_WORDS = {"CATTLE": "cattle", "GOAT": "goats", "SHEEP": "sheep", "CHICKEN": "chickens"} %}
+{# One of each, for "1 bull" rather than "1 bulls". #}
+{% set ONE = {"Calves": "calf", "Heifers": "heifer", "Cows": "cow", "Bulls": "bull", "GOAT": "goat", "SHEEP": "sheep", "CHICKEN": "chicken"} %}
+{% set a, h, c, m, p, o = status.animals, status.health, status.condition, status.market, status.pharmacy, status.outlook %}
+<section class="status-grid" aria-label="Farm status">
+  <a class="status-tile" href="{{ url_for('herd.list_animals') }}">
+    <span class="label">Animals</span>
+    <span class="state">{{ a.total }}</span>
+    <span class="detail">
+      {% if a.cattle.values()|sum %}Cattle: {% for group, n in a.cattle.items() if n %}{{ n }} {{ ONE[group] if n == 1 else group|lower }}{{ " · " if not loop.last }}{% endfor %}<br>{% endif %}
+      {% for species, n in a.others.items() %}{{ n }} {{ ONE[species] if n == 1 else SPECIES_WORDS[species] }}{{ " · " if not loop.last }}{% endfor %}
+      {% if not a.total %}No animals on the farm yet.{% endif %}
+    </span>
+  </a>
+
+  <a class="status-tile tone-{{ h.tone }}" href="{{ url_for('main.status_detail', key='health') }}">
+    <span class="label">Health</span>
+    <span class="state">{{ h.state }}</span>
+    <span class="detail">
+      {% if h.records %}{{ h.records|length }} unwell: {{ tags(h.records|map(attribute="animal.tag_number")|list) }}
+      {% else %}No animal ill or under treatment.{% endif %}
+    </span>
+  </a>
+
+  <a class="status-tile tone-{{ c.tone }}" href="{{ url_for('main.status_detail', key='condition') }}">
+    <span class="label">Condition</span>
+    <span class="state">{{ c.state }}</span>
+    <span class="detail">
+      {% if c.next %}Next due: {{ c.next.event.dam.tag_number }}{% if c.next.days is not none %}, {{ when(c.next.days) }}{% endif %}
+      {% else %}No pregnancies recorded.{% endif %}
+    </span>
+  </a>
+
+  <a class="status-tile tone-{{ m.tone }}" href="{{ url_for('main.status_detail', key='market') }}">
+    <span class="label">Market</span>
+    <span class="state">{{ m.state }}</span>
+    <span class="detail">
+      {% if m.animals %}{% if m.sell %}{{ m.sell }} to sell{% endif %}{% if m.sell and m.cull %} · {% endif %}{% if m.cull %}{{ m.cull }} to cull{% endif %}
+      {% else %}No animals marked to sell or cull.{% endif %}
+    </span>
+  </a>
+
+  <a class="status-tile tone-{{ p.tone }}" href="{{ url_for('pharmacy.index') }}">
+    <span class="label">Pharmacy</span>
+    <span class="state">{{ p.state }}</span>
+    <span class="detail">
+      {% if p.low %}{% if p.out %}Out: {{ p.out|map(attribute="name")|join(", ") }}<br>{% endif %}
+        {% set low_only = p.low|rejectattr("status", "equalto", "OUT")|map(attribute="name")|list %}
+        {% if low_only %}Low: {{ low_only|join(", ") }}{% endif %}
+      {% elif p.count %}All medicines above their reorder level.
+      {% else %}No medicines yet.{% endif %}
+    </span>
+  </a>
+
+  <a class="status-tile tone-{{ o.tone }}" href="{{ url_for('main.status_detail', key='outlook') }}">
+    <span class="label">Health outlook</span>
+    <span class="state">{{ o.state }}</span>
+    <span class="detail">
+      {% set first = o.soon[0] if o.soon else o.next %}
+      {% if first %}{{ "Due" if o.soon else "Next" }}: {{ first.name }} ({{ SPECIES_WORDS[first.species] }}), {{ when(first.days) }}
+        {% if o.soon|length > 1 %}<br>and {{ o.soon|length - 1 }} more within a month{% endif %}
+      {% else %}Nothing to plan yet.{% endif %}
+    </span>
+  </a>
+</section>

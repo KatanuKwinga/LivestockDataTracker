@@ -19,6 +19,9 @@ class Livestock(db.Model):
     breed = db.Column(db.String(50))
     date_of_birth = db.Column(db.Date)
     description = db.Column(db.Text)
+    # "SELL" or "CULL" when the farmer has marked it for market (reviewed
+    # about monthly); empty otherwise. Shown on the dashboard's Market tile.
+    market_status = db.Column(db.String(10))
     b_record_id = db.Column(
         db.Integer,
         db.ForeignKey("breeding_record.b_record_id", use_alter=True, name="fk_livestock_birth_event"),

@@ -13,8 +13,22 @@
     <a class="btn btn-ghost" href="{{ url_for('records.general_form', species_slug=species_slug, animal_id=animal.animal_id) }}">Edit details</a>
     {% if animal.status == "ON_FARM" %}
       <a class="btn btn-olive" href="{{ url_for('records.choose_category', species_slug=species_slug) }}">Add a record <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></a>
-    {% endif %}
+        {% endif %}
   </div>
+  {% if is_farmer and animal.status == "ON_FARM" %}
+    {# The market list: the farmer marks animals to sell or cull. #}
+    <form method="post" class="market-tools" action="{{ url_for('herd.mark_for_market', animal_id=animal.animal_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if animal.market_status %}
+        <span class="badge badge-warn">Marked {{ "to sell" if animal.market_status == "SELL" else "to cull" }}</span>
+        <button type="submit" name="market" value="" class="link-btn">Take off the market list</button>
+      {% else %}
+        <span class="muted">Market:</span>
+        <button type="submit" name="market" value="SELL" class="link-btn">Mark to sell</button>
+        <button type="submit" name="market" value="CULL" class="link-btn">Mark to cull</button>
+      {% endif %}
+    </form>
+  {% endif %}
   <dl class="facts">
     <div><dt>Sex</dt><dd>{{ animal.gender|title }}</dd></div>
     <div><dt>Age</dt><dd>{{ animal.age_label or "Not known" }}</dd></div>

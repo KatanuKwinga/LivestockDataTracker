@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "status/_macros.html" import when %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('main.dashboard') }}"><svg class="i"><use href="#i-back"/></svg>Home</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Condition</span>
+    <h1>Pregnant <em>animals</em></h1>
+    <p>Soonest due first. A birth is recorded under Add record, Breeding.</p>
+  </div>
+</div>
+{% if s.rows %}
+  <section class="panel"><div class="table-wrap"><table class="table rows-link">
+    <thead><tr><th>Mother</th><th>Species</th><th>Due</th><th>When</th><th>Father</th></tr></thead>
+    <tbody>
+      {% for row in s.rows %}
+        {% set e = row.event %}
+        <tr>
+          <td><a class="row-link mono" href="{{ url_for('herd.animal_detail', animal_id=e.animal_id) }}">{{ e.dam.tag_number }}</a></td>
+          <td>{{ e.dam.species|title }}</td>
+          <td class="mono">{{ e.expected_delivery_date.strftime("%d %b %Y") if e.expected_delivery_date else "Not known" }}</td>
+          <td>{% if row.days is none %}—{% elif row.overdue %}<span class="badge badge-warn">{{ when(row.days) }}</span>{% else %}{{ when(row.days) }}{% endif %}</td>
+          <td class="mono">{{ e.sire.tag_number if e.sire else "—" }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table></div></section>
+{% else %}
+  <div class="empty">No pregnancies recorded.</div>
+{% endif %}
+{% endblock %}

@@ -1,9 +1,11 @@
 from datetime import date, datetime
 
-from flask import Blueprint, redirect, render_template, url_for
+from flask import Blueprint, abort, redirect, render_template, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import func, select
 
+from app import status
+from app.decorators import farmer_required
 from app.extensions import db
 from app.farm import current_farm_id, still_on_farm
 from app.models import Farmer, Livestock, Worker
@@ -21,11 +23,7 @@ HERD_ORDER = [
 
 
 def herd_summary(farm_id):
-    """How many animals of each species are on the farm right now.
-
-    Animals that have died (a mortality record) or been sold (a SELL record)
-    are no longer on the farm, so they are left out. Returns a list of
-    dicts for the template, and the total."""
+    """How many animals of each species are on the farm right now."""
     rows = db.session.execute(
         select(Livestock.species, func.count())
         .where(Livestock.farmer_id == farm_id, still_on_farm())
@@ -64,5 +62,27 @@ def dashboard():
     }
     if isinstance(current_user, Farmer):
         context["worker_count"] = Worker.query.filter_by(farmer_id=current_user.farmer_id).count()
+        context["status"] = status.all_statuses(current_farm_id())        
         return render_template("home_farmer.html", **context)
     return render_template("home_worker.html", **context)
+
+
+
+# The dashboard tiles that open a page of details, and what each page shows.
+STATUS_PAGES = {
+    "health": ("Unwell animals", status.unwell),
+    "condition": ("Pregnant animals", status.pregnant),
+    "market": ("Market list", status.market),
+    "outlook": ("Coming up", status.outlook),
+}
+
+
+@main_bp.route("/status/<key>")
+@farmer_required
+def status_detail(key):
+    """The details behind one dashboard tile, e.g. which animals are unwell."""
+    if key not in STATUS_PAGES:
+        abort(404)
+    title, work_out = STATUS_PAGES[key]
+    return render_template(f"status/{key}.html", title=title, s=work_out(current_farm_id()),
+                           unwell_days=status.UNWELL_DAYS, today=date.today())

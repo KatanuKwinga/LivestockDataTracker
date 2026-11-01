@@ -5,10 +5,12 @@ apart also lets the navbar highlight "Add record" and "Records" separately.
 """
 from datetime import date
 
-from flask import Blueprint, render_template, request
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 from sqlalchemy.orm import selectinload
 
+from app.decorators import farmer_required
+from app.extensions import db
 from app.farm import farm_animals, get_farm_animal_or_404, search_animals, status_filter
 from app.models import Livestock
 from app.routes.records import SLUG_FOR, SPECIES_CHOICES
@@ -62,3 +64,22 @@ def animal_detail(animal_id):
     return render_template("herd/detail.html", animal=animal, species_slug=SLUG_FOR[animal.species],
                            breeding=breeding,
                            latest_weight=animal.weight_records[-1] if animal.weight_records else None)
+
+
+MARKET_WORDS = {"SELL": "to sell", "CULL": "to cull"}
+
+
+@herd_bp.route("/<int:animal_id>/market", methods=["POST"])
+@farmer_required
+def mark_for_market(animal_id):
+    """Mark an animal to sell or to cull, or take it off the market list.
+    Only the farmer decides this; it shows on the dashboard's Market tile."""
+    animal = get_farm_animal_or_404(animal_id)
+    choice = request.form.get("market") or None
+    if choice not in (None, *MARKET_WORDS):
+        choice = None
+    animal.market_status = choice if animal.status == "ON_FARM" else None
+    db.session.commit()
+    flash(f"{animal.tag_number} marked {MARKET_WORDS[choice]}." if animal.market_status
+          else f"{animal.tag_number} is off the market list.", "success")
+    return redirect(url_for("herd.animal_detail", animal_id=animal.animal_id))

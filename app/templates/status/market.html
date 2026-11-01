@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('main.dashboard') }}"><svg class="i"><use href="#i-back"/></svg>Home</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Market &middot; {{ s.state }}</span>
+    <h1>Market <em>list</em></h1>
+    <p>Animals marked to sell or cull. Mark one from its own page; record the sale under Add record, Commercial.</p>
+  </div>
+</div>
+{% if s.animals %}
+  <section class="panel"><div class="table-wrap"><table class="table rows-link">
+    <thead><tr><th>Animal</th><th>Species</th><th>Sex</th><th>Age</th><th>Marked</th></tr></thead>
+    <tbody>
+      {% for a in s.animals %}
+        <tr>
+          <td><a class="row-link mono" href="{{ url_for('herd.animal_detail', animal_id=a.animal_id) }}">{{ a.tag_number }}</a></td>
+          <td>{{ a.species|title }}</td>
+          <td>{{ a.gender|title }}</td>
+          <td>{{ a.age_label or "Not known" }}</td>
+          <td><span class="badge badge-warn">{{ "To sell" if a.market_status == "SELL" else "To cull" }}</span></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table></div></section>
+{% else %}
+  <div class="empty">No animals marked. Open an animal's page and choose <b>Mark to sell</b> or <b>Mark to cull</b>.</div>
+{% endif %}
+{% endblock %}

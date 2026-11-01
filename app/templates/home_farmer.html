@@ -13,12 +13,7 @@
   </div>
 </div>
 
-<div class="stats">
-  <div class="stat"><span class="label">On the farm</span><span class="num">{{ total }}</span></div>
-  {% for s in herd %}
-    <div class="stat"><span class="label"><i class="dot {{ s.css }}"></i>{{ s.label }}</span><span class="num">{{ s.count }}</span></div>
-  {% endfor %}
-</div>
+{% include "status/_tiles.html" %}
 
 <div class="home-grid">
   {% include "_herd.html" %}

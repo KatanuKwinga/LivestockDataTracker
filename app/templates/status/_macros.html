@@ -1,0 +1,10 @@
+{# Small helpers shared by the dashboard tiles and the status pages. #}
+{% macro when(days) -%}
+  {%- if days < 0 %}overdue by {{ -days }} day{{ "" if days == -1 else "s" }}
+  {%- elif days == 0 %}due today
+  {%- else %}in {{ days }} day{{ "" if days == 1 else "s" }}{% endif -%}
+{%- endmacro %}
+
+{% macro tags(animals, limit=4) -%}
+  {{ animals[:limit]|join(", ") }}{% if animals|length > limit %} and {{ animals|length - limit }} more{% endif %}
+{%- endmacro %}
