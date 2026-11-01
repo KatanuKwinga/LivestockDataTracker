@@ -78,7 +78,8 @@ class AnimalForm(FlaskForm):
     ])
     gender = SelectField("Sex", choices=[("", "Choose one"), ("FEMALE", "Female"), ("MALE", "Male")],
                          validators=[DataRequired(message="Choose female or male.")])
-    breed = StringField("Breed (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=50)])
+    castrated = BooleanField("Castrated (a steer, or a wether for goats and sheep)")
+    breed = StringField("Breed (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=50)])    
     date_of_birth = DateField("Date of birth (optional)", validators=[Optional()])
     description = TextAreaField("Notes (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=500)])
     submit = SubmitField("Save animal")
@@ -96,6 +97,10 @@ class AnimalForm(FlaskForm):
     def validate_date_of_birth(self, field):
         if field.data and field.data > date.today():
             raise ValidationError("The date of birth can't be in the future.")
+
+    def validate_castrated(self, field):
+        if field.data and self.gender.data == "FEMALE":
+            raise ValidationError("Only a male can be castrated. Untick it, or change the sex.")
 
 def check_record_date(field, animal):
     """A record can't be dated in the future, or before the animal was born."""

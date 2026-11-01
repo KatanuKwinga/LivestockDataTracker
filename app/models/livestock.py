@@ -22,6 +22,9 @@ class Livestock(db.Model):
     # "SELL" or "CULL" when the farmer has marked it for market (reviewed
     # about monthly); empty otherwise. Shown on the dashboard's Market tile.
     market_status = db.Column(db.String(10))
+    # True for a castrated male (a steer, or a wether for goats and sheep).
+    # server_default fills in False for the animals already in the database.
+    castrated = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())    
     b_record_id = db.Column(
         db.Integer,
         db.ForeignKey("breeding_record.b_record_id", use_alter=True, name="fk_livestock_birth_event"),

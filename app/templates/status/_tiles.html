@@ -2,7 +2,7 @@
 {% from "status/_macros.html" import when, tags %}
 {% set SPECIES_WORDS = {"CATTLE": "cattle", "GOAT": "goats", "SHEEP": "sheep", "CHICKEN": "chickens"} %}
 {# One of each, for "1 bull" rather than "1 bulls". #}
-{% set ONE = {"Calves": "calf", "Heifers": "heifer", "Cows": "cow", "Bulls": "bull", "GOAT": "goat", "SHEEP": "sheep", "CHICKEN": "chicken"} %}
+{% set ONE = {"Calves": "calf", "Heifers": "heifer", "Cows": "cow", "Steers": "steer", "Bulls": "bull", "GOAT": "goat", "SHEEP": "sheep", "CHICKEN": "chicken"} %}
 {% set a, h, c, m, p, o = status.animals, status.health, status.condition, status.market, status.pharmacy, status.outlook %}
 <section class="status-grid" aria-label="Farm status">
   <a class="status-tile" href="{{ url_for('herd.list_animals') }}">

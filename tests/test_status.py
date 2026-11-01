@@ -74,7 +74,7 @@ def test_cattle_are_counted_in_the_farms_groups(app, client):
 
     animals = statuses(app)["animals"]
     assert animals["total"] == 6
-    assert animals["cattle"] == {"Calves": 1, "Heifers": 2, "Cows": 1, "Bulls": 1}
+    assert animals["cattle"] == {"Calves": 1, "Heifers": 2, "Cows": 1, "Steers": 0, "Bulls": 1}    
     assert animals["others"] == {"GOAT": 1}
     page = client.get("/dashboard").data
     assert b"Cattle: 1 calf \xc2\xb7 2 heifers \xc2\xb7 1 cow \xc2\xb7 1 bull" in page and b"1 goat" in page

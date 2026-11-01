@@ -22,6 +22,11 @@
     {{ field(form.tag_number, class_="mono", autocomplete="off",
              help="The number on its ear tag. We've suggested the next free one; change it if the tag says something else.") }}
     {{ field(form.gender, help="Female or male.") }}
+    {# Only for males: the script hides it when Female is chosen. #}
+    <div class="field" data-show-for-sex="MALE">
+      <label class="confirm-box{% if form.castrated.errors %} has-error{% endif %}">{{ form.castrated() }}<span>{{ form.castrated.label.text }}</span></label>
+      {% for error in form.castrated.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+    </div>
     {{ field(form.breed, list="breed-options", autocomplete="off",
              help="Pick from the list or type another. Write \"Cross\" for a mixed breed.") }}
     {{ field(form.date_of_birth, max=today,
@@ -38,4 +43,20 @@
     <a class="btn btn-ghost" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='general') }}">Cancel</a>
   </div>
 </form>
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+  // Show the Castrated box only for males. Without JavaScript it simply
+  // stays visible, and the server refuses it for a female.
+  (function () {
+    var sex = document.getElementById("gender");
+    var box = document.querySelector("[data-show-for-sex]");
+    if (!sex || !box) return;
+    function update() { box.hidden = sex.value !== box.dataset.showForSex; }
+    sex.addEventListener("change", update);
+    update();
+  })();
+</script>
 {% endblock %}

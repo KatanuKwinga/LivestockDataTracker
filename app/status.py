@@ -34,13 +34,13 @@ def animal_counts(farm_id, today=None):
     animals = on_farm(farm_id).all()
     mothers = {dam_id for (dam_id,) in db.session.query(BreedingRecord.animal_id)
                .filter(BreedingRecord.status == "SUCCESSFUL BIRTH")}
-    groups = {"Calves": 0, "Heifers": 0, "Cows": 0, "Bulls": 0}
+    groups = {"Calves": 0, "Heifers": 0, "Cows": 0, "Steers": 0, "Bulls": 0}    
     for animal in (a for a in animals if a.species == "CATTLE"):
         age = months_old(animal, today)
         if age is not None and age < CALF_MONTHS:
             groups["Calves"] += 1
         elif animal.gender == "MALE":
-            groups["Bulls"] += 1
+            groups["Steers" if animal.castrated else "Bulls"] += 1
         elif animal.animal_id in mothers:
             groups["Cows"] += 1
         else:

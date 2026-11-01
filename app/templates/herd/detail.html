@@ -30,7 +30,7 @@
     </form>
   {% endif %}
   <dl class="facts">
-    <div><dt>Sex</dt><dd>{{ animal.gender|title }}</dd></div>
+    <div><dt>Sex</dt><dd>{{ animal.gender|title }}{% if animal.castrated %}, castrated{% endif %}</dd></div>    
     <div><dt>Age</dt><dd>{{ animal.age_label or "Not known" }}</dd></div>
     <div><dt>Born</dt><dd>{{ animal.date_of_birth.strftime("%d %b %Y") if animal.date_of_birth else "Not known" }}</dd></div>
     <div><dt>Last weight</dt><dd>{{ "%g kg"|format(latest_weight.weight) if latest_weight else "Not weighed" }}</dd></div>

@@ -403,6 +403,8 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; min-width
 .status-tile.tone-warn .state { color: var(--warn); }
 .status-tile.tone-bad .state { color: var(--bad); }
 .status-tile .detail { font-size: 13.5px; color: var(--ink-soft); line-height: 1.45; }
+.field[hidden] { display: none; }   /* the box display:grid would otherwise override "hidden" */
+.field .confirm-box { font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink); }   /* not the small capitals of a field label */
 .market-tools { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; margin: 0; }
 
 /* ---------- responsive ---------- */

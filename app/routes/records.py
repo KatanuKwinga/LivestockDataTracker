@@ -98,12 +98,7 @@ def choose_animal(species_slug, category_key):
 @records_bp.route("/add/<species_slug>/general/<int:animal_id>", methods=["GET", "POST"])
 @login_required
 def general_form(species_slug, animal_id=None):
-    """Register a new animal, or correct an existing one's details.
-
-    One view does both because the form is the same; animal is None when
-    registering. The animal must belong to this farm (else 404) and be of
-    the species in the URL, so a hand-edited URL can't reach another farm's
-    animal or mix up species."""
+    """Register a new animal, or correct an existing one's details."""
     species = species_or_404(species_slug)
     animal = None
     if animal_id is not None:
@@ -122,6 +117,7 @@ def general_form(species_slug, animal_id=None):
             db.session.add(animal)
         animal.tag_number = form.tag_number.data
         animal.gender = form.gender.data
+        animal.castrated = form.castrated.data and form.gender.data == "MALE"
         animal.breed = form.breed.data or None
         animal.date_of_birth = form.date_of_birth.data
         animal.description = form.description.data or None
