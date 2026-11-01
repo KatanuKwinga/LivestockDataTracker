@@ -6,13 +6,12 @@
   <div>
     <span class="eyebrow">Market &middot; {{ s.state }}</span>
     <h1>Market <em>list</em></h1>
-    <p>Animals marked to sell or cull. Mark one from its own page; record the sale under Add record, Commercial.</p>
+    <p>Animals marked to sell or cull.</p>
   </div>
 </div>
 {% if s.animals %}
   <section class="panel"><div class="table-wrap"><table class="table rows-link">
-    <thead><tr><th>Animal</th><th>Species</th><th>Sex</th><th>Age</th><th>Marked</th></tr></thead>
-    <tbody>
+    <thead><tr><th>Animal</th><th>Species</th><th>Sex</th><th>Age</th><th>Marked</th><th>Since</th><th>Reason</th></tr></thead>    <tbody>
       {% for a in s.animals %}
         <tr>
           <td><a class="row-link mono" href="{{ url_for('herd.animal_detail', animal_id=a.animal_id) }}">{{ a.tag_number }}</a></td>
@@ -20,11 +19,13 @@
           <td>{{ a.gender|title }}</td>
           <td>{{ a.age_label or "Not known" }}</td>
           <td><span class="badge badge-warn">{{ "To sell" if a.market_status == "SELL" else "To cull" }}</span></td>
+          <td class="mono">{{ a.market_marked_on.strftime("%d %b %Y") if a.market_marked_on else "—" }}</td>
+          <td>{{ a.market_note or "" }}</td>        
         </tr>
       {% endfor %}
     </tbody>
   </table></div></section>
 {% else %}
-  <div class="empty">No animals marked. Open an animal's page and choose <b>Mark to sell</b> or <b>Mark to cull</b>.</div>
+  <div class="empty">No animals identified. Use Add record, Commercial, and choose <b>To sell or cull</b>.</div>
 {% endif %}
 {% endblock %}

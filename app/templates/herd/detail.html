@@ -15,13 +15,13 @@
       <a class="btn btn-olive" href="{{ url_for('records.choose_category', species_slug=species_slug) }}">Add a record <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></a>
         {% endif %}
   </div>
-  {% if is_farmer and animal.status == "ON_FARM" %}
-    {# The market list: the farmer marks animals to sell or cull. #}
+    {% if animal.status == "ON_FARM" %}
+    {# The market list: animals identified to sell or cull, for the farmer's review. #}
     <form method="post" class="market-tools" action="{{ url_for('herd.mark_for_market', animal_id=animal.animal_id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {% if animal.market_status %}
         <span class="badge badge-warn">Marked {{ "to sell" if animal.market_status == "SELL" else "to cull" }}</span>
-        <button type="submit" name="market" value="" class="link-btn">Take off the market list</button>
+        <span class="muted">{% if animal.market_marked_on %}since {{ animal.market_marked_on.strftime("%d %b %Y") }}{% endif %}{% if animal.market_note %}: {{ animal.market_note }}{% endif %}</span>        <button type="submit" name="market" value="" class="link-btn">Take off the market list</button>
       {% else %}
         <span class="muted">Market:</span>
         <button type="submit" name="market" value="SELL" class="link-btn">Mark to sell</button>

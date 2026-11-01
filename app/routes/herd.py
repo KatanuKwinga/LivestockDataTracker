@@ -9,7 +9,6 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 from sqlalchemy.orm import selectinload
 
-from app.decorators import farmer_required
 from app.extensions import db
 from app.farm import farm_animals, get_farm_animal_or_404, search_animals, status_filter
 from app.models import Livestock
@@ -70,15 +69,19 @@ MARKET_WORDS = {"SELL": "to sell", "CULL": "to cull"}
 
 
 @herd_bp.route("/<int:animal_id>/market", methods=["POST"])
-@farmer_required
+@login_required
 def mark_for_market(animal_id):
-    """Mark an animal to sell or to cull, or take it off the market list.
-    Only the farmer decides this; it shows on the dashboard's Market tile."""
+    """Quickly mark an animal to sell or to cull, or take it off the market
+    list. (The Commercial form does the same with a date and a reason.)
+    Anyone on the farm can identify one; the farmer reviews the list from
+    the dashboard's Market tile."""
     animal = get_farm_animal_or_404(animal_id)
     choice = request.form.get("market") or None
-    if choice not in (None, *MARKET_WORDS):
+    if choice not in (None, *MARKET_WORDS) or animal.status != "ON_FARM":
         choice = None
-    animal.market_status = choice if animal.status == "ON_FARM" else None
+    animal.market_status = choice
+    animal.market_marked_on = date.today() if choice else None
+    animal.market_note = None
     db.session.commit()
     flash(f"{animal.tag_number} marked {MARKET_WORDS[choice]}." if animal.market_status
           else f"{animal.tag_number} is off the market list.", "success")

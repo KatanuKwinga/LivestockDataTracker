@@ -282,16 +282,21 @@ class GroupForm(PharmacyUseMixin, FlaskForm):
 
 
 class SaleForm(FlaskForm):
-    """A purchase or a sale of one animal. A sale takes the animal off the farm: its status becomes SOLD and it
-    drops out of the herd lists. """
-    transaction_type = RadioField("Bought or sold?", default="SELL",
-                                  choices=[("SELL", "Sold"), ("BUY", "Bought")],
-                                  validators=[DataRequired(message="Choose bought or sold.")])
+    class SaleForm(FlaskForm):
+     """A purchase or a sale of one animal, or identifying it for sale or
+    culling. A sale takes the animal off the farm: its status becomes SOLD
+    and it drops out of the herd lists. Identifying it only puts it on the
+    market list (the dashboard's Market tile); nothing is sold yet."""
+    transaction_type = RadioField("What happened?", default="SELL",
+                                  choices=[("SELL", "Sold"), ("BUY", "Bought"), ("MARK", "To sell or cull")],
+                                  validators=[DataRequired(message="Choose what happened.")])
     date = DateField("Date", default=date.today, validators=[DataRequired(message="Enter the date.")])
+    # Needed for a sale or purchase, not for identifying one (checked in validate).
     amount = FloatField("Price in KES", validators=[
-        InputRequired(message="Enter the price in KES."),
-        NumberRange(min=0, message="The price can't be negative."),
+        Optional(), NumberRange(min=0, message="The price can't be negative."),
     ])
+    market = RadioField("Sell or cull?", default="SELL", choices=[("SELL", "Sell"), ("CULL", "Cull")])
+    market_note = StringField("Reason (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=200)])
     other_party = StringField("Sold to / bought from (optional)", filters=[strip_spaces],
                               validators=[Optional(), Length(max=100)])
     location = StringField("Where (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=100)])
@@ -307,11 +312,14 @@ class SaleForm(FlaskForm):
 
     def validate(self, extra_validators=None):
         valid = super().validate(extra_validators)
-        if self.transaction_type.data == "SELL" and not self.confirm.data:
+        kind = self.transaction_type.data
+        if kind in ("SELL", "BUY") and self.amount.data is None and not self.amount.errors:
+            self.amount.errors.append("Enter the price in KES.")
+            valid = False
+        if kind == "SELL" and not self.confirm.data:
             self.confirm.errors.append("Tick the box to confirm the sale.")
             valid = False
         return valid
-
 
 class DeathForm(FlaskForm):
     """The death of one animal. Like a sale it takes the animal off the

@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% from "_macros.html" import field, submit %}
-{% block title %}Purchase or sale of {{ animal.tag_number }}{% endblock %}
+{% block title %}Commercial record for {{ animal.tag_number }}{% endblock %}
 {% block content %}
 <a class="back" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='commercial') }}"><svg class="i"><use href="#i-back"/></svg>Back to {{ species.label|lower }}</a>
 <div class="page-head">
   <div>
     <span class="eyebrow">{{ species.label }} &middot; Commercial</span>
-    <h1>Bought or sold: <em>{{ animal.tag_number }}</em></h1>
-    <p>Record what was paid. A sale takes {{ animal.tag_number }} off the farm's herd lists.</p>
+        <h1>Commercial record for <em>{{ animal.tag_number }}</em></h1>
+    <p>A sale takes {{ animal.tag_number }} off the herd lists. "To sell or cull" only puts it on the market list for the farmer's review.</p>
   </div>
 </div>
 
@@ -23,12 +23,37 @@
     {% for error in form.transaction_type.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
   </fieldset>
 
+    {% if animal.market_status %}
+    {% set since = " (since " ~ animal.market_marked_on.strftime("%d %b %Y") ~ ")" if animal.market_marked_on else "" %}
+    <div class="flashes"><div class="flash flash-info">{{ animal.tag_number }} is already on the market list, {{ "to sell" if animal.market_status == "SELL" else "to cull" }}{{ since }}.</div></div>
+  {% endif %}
+
   <div class="form-grid">
-    {{ field(form.date, max=today, help="The day the money changed hands.") }}
-    {{ field(form.amount, type="number", step="1", min="0", inputmode="numeric",
-             help="In Kenya shillings, without commas, e.g. 12500. Use 0 for a gift.") }}
-    {{ field(form.other_party, autocomplete="off", help="The buyer or seller, e.g. a name or \"Kiserian market\".") }}
-    {{ field(form.location, autocomplete="off", help="Where it happened, e.g. \"Farm gate\".") }}
+    {{ field(form.date, max=today, help="The day it was sold, bought or identified.") }}
+    {# For a sale or purchase. #}
+    <div class="when" data-show-for="SELL BUY">
+      {{ field(form.amount, type="number", step="1", min="0", inputmode="numeric",
+               help="In Kenya shillings, without commas, e.g. 12500. Use 0 for a gift.") }}
+    </div>
+    <div class="when" data-show-for="SELL BUY">
+      {{ field(form.other_party, autocomplete="off", help="The buyer or seller, e.g. a name or \"Kiserian market\".") }}
+    </div>
+    <div class="when" data-show-for="SELL BUY">
+      {{ field(form.location, autocomplete="off", help="Where it happened, e.g. \"Farm gate\".") }}
+    </div>
+    {# For identifying it to sell or cull. #}
+    <div class="when" data-show-for="MARK">
+      <fieldset class="field segmented-field">
+        <legend>{{ form.market.label.text }}</legend>
+        <div class="segmented">
+          {% for option in form.market %}<label class="seg">{{ option() }}<span>{{ option.label.text }}</span></label>{% endfor %}
+        </div>
+        {% for error in form.market.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+      </fieldset>
+    </div>
+    <div class="when" data-show-for="MARK">
+      {{ field(form.market_note, wide=True, autocomplete="off", help="Why, e.g. \"Old, low milk yield\" or \"Bull calf, sell at 1 year\".") }}
+    </div>
   </div>
 
   {# Shown only for a sale: the script hides it when "Bought" is chosen. #}
@@ -49,7 +74,7 @@
 
 {% block scripts %}
 <script>
-  // Show the sale confirmation only when "Sold" is chosen.
+  // Show only the boxes related to the choice made.
   (function () {
     var radios = document.querySelectorAll('input[name="transaction_type"]');
     function update() {

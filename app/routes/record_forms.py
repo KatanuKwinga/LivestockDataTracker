@@ -10,6 +10,7 @@ from app.farm import farm_animals, get_farm_animal_or_404, suggest_tag_number
 from app.forms import BreedingForm, DeathForm, HealthForm, ProductionForm, SaleForm, WeightForm
 from app.models import (BreedingRecord, CommercialInfo, HealthRecord, Farmer, Livestock, MortalityRecord,
                         ProductionData, WeightRecord)
+from app.routes.herd import MARKET_WORDS
 from app.routes.records import CATEGORIES, SLUG_FOR, records_bp, species_or_404
 from app.stock import add_line
 from ml.reference import CONDITIONS, GESTATION_DAYS
@@ -215,9 +216,20 @@ def commercial_form(species_slug, animal_id):
     species, animal, leave = animal_for_record(species_slug, animal_id)
     if leave:
         return leave
-
     form = SaleForm(animal)
+    if not form.is_submitted() and animal.market_status:
+        form.market.data, form.market_note.data = animal.market_status, animal.market_note
     if form.validate_on_submit():
+        if form.transaction_type.data == "MARK":
+            # Identified for sale or culling: it goes on the market list for
+            # the farmer's monthly review. It stays on the farm until sold.
+            animal.market_status = form.market.data
+            animal.market_marked_on, animal.market_note = form.date.data, form.market_note.data or None
+            db.session.commit()
+            flash(f"{animal.tag_number} is on the market list, {MARKET_WORDS[animal.market_status]}.", "success")
+            return redirect(url_for("herd.animal_detail", animal_id=animal.animal_id))
+        if form.transaction_type.data == "SELL":
+            animal.market_status = None              # sold: it comes off the market list
         db.session.add(CommercialInfo(animal_id=animal.animal_id, transaction_type=form.transaction_type.data,
                                       date=form.date.data, amount=form.amount.data,
                                       other_party=form.other_party.data or None, location=form.location.data or None))

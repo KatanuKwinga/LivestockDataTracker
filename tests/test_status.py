@@ -159,7 +159,7 @@ def test_odd_market_values_are_ignored_and_gone_animals_drop_off(app, client):
     assert statuses(app)["market"]["state"] == "None"
 
 
-def test_only_the_farmer_marks_and_only_their_own_animals(app, client):
+def test_workers_can_identify_animals_but_only_on_their_farm(app, client):
     register_farmer(client, name="Other Farmer", email="other@example.com")
     theirs = add_animal(app, "G900", email="other@example.com")
     farm_with_worker(client)
@@ -167,10 +167,9 @@ def test_only_the_farmer_marks_and_only_their_own_animals(app, client):
     assert client.post(f"/herd/{theirs}/market", data={"market": "SELL"}).status_code == 404
     goat = add_animal(app, "G001")
     as_worker(client)
-    assert client.post(f"/herd/{goat}/market", data={"market": "SELL"}).headers["Location"].endswith("/dashboard")
-    assert b"Mark to sell" not in client.get(f"/herd/{goat}").data
+    client.post(f"/herd/{goat}/market", data={"market": "CULL"})
     with app.app_context():
-        assert db.session.get(Livestock, goat).market_status is None
+        assert db.session.get(Livestock, goat).market_status == "CULL"
 
 
 # -------------------------------------------------------------- 5. pharmacy
