@@ -54,7 +54,8 @@ def test_farmers_see_analytics_and_workers_do_not(client):
     farm_with_worker(client)
     as_farmer(client)
     page = client.get("/analytics/").data.decode()
-    assert "A Farm Analysis" in page and "Herd size" in page and 'id="analyticsData"' in page    assert ">Analytics<" in client.get("/dashboard").data.decode()
+    assert "A Farm Analysis" in page and "Herd size" in page and 'id="analyticsData"' in page    
+    assert ">Analytics<" in client.get("/dashboard").data.decode()
     assert len(client.get("/analytics/?months=24").data) > len(page)      # 24 months of table rows
     as_worker(client)
     assert client.get("/analytics/").headers["Location"].endswith("/dashboard")
