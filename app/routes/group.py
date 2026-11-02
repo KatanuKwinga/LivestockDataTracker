@@ -43,7 +43,7 @@ def activity_or_404(key):
 def animals_treated(session):
     """How many animals a deworming or vaccination session covered, counted
     from the health records saved with it."""
-    if session.activity == "TICK_SPRAY":
+    if session.activity not in ("DEWORMING", "VACCINATION"):
         return None
     query = (HealthRecord.query.join(HealthRecord.animal)
              .filter(Livestock.farmer_id == session.farmer_id, Livestock.species == session.species,
@@ -52,7 +52,7 @@ def animals_treated(session):
         query = query.filter(HealthRecord.description == DEWORMING_NOTE)
     else:
         query = query.filter(HealthRecord.record_type == "VACCINATION")
-    return query.count()
+    return query.count() or None 
 
 
 def too_young_to_deworm(animal):

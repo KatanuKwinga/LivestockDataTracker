@@ -209,3 +209,16 @@ def test_recent_sessions_and_saved_pages_belong_to_one_farm(app, client):
     page = client.get("/group/").data
     assert b"Nilzan" in page and b"Their own spray" not in page
     assert client.get(f"/group/saved/{theirs_id}").status_code == 404
+
+
+def test_sessions_without_per_animal_records_show_as_whole_herd(app, client):
+    # Sessions loaded from the farm's old books (and group treatments that
+    # aren't dewormings or vaccinations) have no health record per animal.
+    farmer_logged_in(client)
+    with app.app_context():
+        for activity in ("DEWORMING", "TREATMENT"):
+            db.session.add(HerdActivity(farmer_id=farm_id_of(), species="SHEEP", date=date(2026, 8, 29),
+                                        activity=activity, product="Ivermectin"))
+        db.session.commit()
+    page = client.get("/group/").data.decode()
+    assert page.count("Whole herd") == 2 and ">0<" not in page
