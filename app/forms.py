@@ -2,6 +2,7 @@ from datetime import date
 
 from flask import request
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileAllowed, FileField, FileRequired
 from sqlalchemy import func
 from wtforms import (BooleanField, DateField, FloatField, IntegerField, PasswordField, RadioField, SelectField,
                      SelectMultipleField, StringField, SubmitField, TextAreaField, widgets)
@@ -67,6 +68,11 @@ class ResetPasswordForm(FlaskForm):
         validators=[DataRequired(), EqualTo("password", message="The passwords don't match.")],
     )
     submit = SubmitField("Save new password")
+    
+class ImportAnimalsForm(FlaskForm):
+    file = FileField("CSV file", validators=[FileRequired(message="Choose a file to upload."),
+                                             FileAllowed(["csv"], "Upload a .csv file (in Excel: Save As, CSV).")])
+    submit = SubmitField("Check and import")
 
 
 class AnimalForm(FlaskForm):

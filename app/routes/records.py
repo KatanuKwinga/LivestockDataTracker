@@ -1,13 +1,14 @@
 from datetime import date
 
-from flask import Blueprint, abort, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.farm import (current_farm_id, farm_animals, get_farm_animal_or_404,
                       search_animals, still_on_farm, suggest_tag_number)
-from app.forms import AnimalForm
+from app.csv_import import TEMPLATE, read_animals
+from app.forms import AnimalForm, ImportAnimalsForm
 from app.models import Livestock
 
 records_bp = Blueprint("records", __name__, url_prefix="/records")
@@ -149,3 +150,37 @@ def saved(animal_id):
     slug = SLUG_FOR[animal.species]
     return render_template("records/saved.html", animal=animal, action=action,
                            species=SPECIES_CHOICES[slug], species_slug=slug)
+
+
+
+# ---------- adding many animals at once from a CSV file ----------
+
+@records_bp.route("/import", methods=["GET", "POST"])
+@login_required
+def import_animals():
+    """Upload a CSV of animals. Every row is checked first: either all of
+    them are saved, or none are and each problem is listed."""
+    form = ImportAnimalsForm()
+    problems = []
+    if form.validate_on_submit():
+        animals, problems = read_animals(form.file.data.read(), current_farm_id())
+        if not problems:
+            db.session.add_all(animals)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                # Someone added one of these tags in the moment between the check and the save.
+                db.session.rollback()
+                problems = [(None, "One of the tags was added by someone else just now. Upload the file again.")]
+            else:
+                flash(f"{len(animals)} animal{'s' if len(animals) != 1 else ''} added from the file.", "success")
+                return redirect(url_for("herd.list_animals", status="all"))
+    return render_template("records/import.html", form=form, problems=problems)
+
+
+@records_bp.route("/import/template.csv")
+@login_required
+def import_template():
+    """An example file with the right column headings, to fill in."""
+    return Response(TEMPLATE, mimetype="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=animals_template.csv"})
