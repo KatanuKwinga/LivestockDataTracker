@@ -45,3 +45,61 @@ def labels(data, start, end, every_days=EVERY_DAYS, horizon=HORIZON_DAYS):
                          "ill_within_30_days": int(animal_id in fell_ill)})
         day += timedelta(days=every_days)
     return pd.DataFrame(rows)
+
+
+
+# ------------------------------------------------------------------ features
+# Everything here looks only at records ON OR BEFORE the snapshot day: what
+# the farmer could know that day. Looking later would be seeing the future.
+
+FEATURES = ["age_days", "days_since_deworming", "days_since_vaccination",
+            "illnesses_last_90_days", "rainy_season"]
+CAP_DAYS = 365          # "never", or more than a year ago, both count as 365
+RAINY_MONTHS = (3, 4, 5, 10, 11, 12)
+DEWORMING_NOTE = "Routine deworming"   # what the group deworming form writes (app/routes/group.py)
+
+
+def days_since(table, events, by):
+    """For each row: days from its snapshot back to the latest event on or before it.
+    `by` says whose events count: the same animal ("animal_id") or the same herd ("species")."""
+    events = events[[by, "date"]].dropna().sort_values("date").rename(columns={"date": "last"})
+    left = table[["snapshot", by]].copy()
+    # merge_asof insists both date columns are stored the same way, so make them match.
+    left["snapshot"] = left["snapshot"].astype("datetime64[ns]")
+    events["last"] = events["last"].astype("datetime64[ns]")
+    found = pd.merge_asof(left, events, left_on="snapshot", right_on="last", by=by)
+    return (found["snapshot"] - found["last"]).dt.days.fillna(CAP_DAYS).clip(upper=CAP_DAYS)
+
+
+def features(table, data):
+    """Add the model's clues to each row of the labels table."""
+    table = table.sort_values("snapshot").reset_index(drop=True)     # merge_asof needs date order
+    born = data["livestock"][["animal_id", "date_of_birth"]].copy()
+    born["date_of_birth"] = pd.to_datetime(born["date_of_birth"])
+    table = table.merge(born, on="animal_id", how="left")
+    table["age_days"] = (table["snapshot"] - table["date_of_birth"]).dt.days
+
+    health = data["health"].copy()
+    health["date"] = pd.to_datetime(health["date"])
+    health = health.merge(data["livestock"][["animal_id", "species"]], on="animal_id")
+
+    # Deworming: the animal's own record, or a deworming session for its whole herd.
+    own = days_since(table, health[health["description"] == DEWORMING_NOTE], "animal_id")
+    sessions = data["herd_activities"].copy()
+    sessions["date"] = pd.to_datetime(sessions["date"])
+    herd = days_since(table, sessions[sessions["activity"] == "DEWORMING"], "species")
+    table["days_since_deworming"] = pd.concat([own, herd], axis=1).min(axis=1)
+
+    table["days_since_vaccination"] = days_since(table, health[health["record_type"] == "VACCINATION"], "animal_id")
+
+    # Illnesses in the 90 days up to and including the snapshot.
+    ill = health[health["record_type"] == "ILLNESS"]
+    counts = []
+    for day, rows in table.groupby("snapshot", sort=False):
+        recent = ill[(ill["date"] > day - timedelta(days=90)) & (ill["date"] <= day)]
+        counts.append(rows["animal_id"].map(recent["animal_id"].value_counts()).fillna(0))
+    table["illnesses_last_90_days"] = pd.concat(counts).astype(int)
+
+    # Rainy season: is the middle of the next 30 days in a rainy month?
+    table["rainy_season"] = (table["snapshot"] + timedelta(days=15)).dt.month.isin(RAINY_MONTHS).astype(int)
+    return table.drop(columns="date_of_birth")

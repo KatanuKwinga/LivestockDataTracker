@@ -3,7 +3,7 @@ from datetime import date
 
 import pandas as pd
 
-from ml.dataset import labels
+from ml.dataset import features, labels
 
 
 def tiny_farm():
@@ -36,3 +36,43 @@ def test_sold_and_unborn_animals_are_left_out():
 def test_no_snapshot_without_30_days_of_records_after_it():
     table = labels(tiny_farm(), start=date(2026, 1, 1), end=date(2026, 3, 31))
     assert table["snapshot"].max() <= pd.Timestamp(2026, 3, 1)
+
+
+
+# ------------------------------------------------------------------ lesson S6: features
+
+def farm_with_history():
+    """One goat with a known history, so every feature can be worked out by hand."""
+    return {
+        "livestock": pd.DataFrame({"animal_id": [1], "species": ["GOAT"], "date_of_birth": [date(2025, 3, 2)]}),
+        "health": pd.DataFrame({
+            "animal_id": [1, 1, 1, 1],
+            "date": [date(2025, 11, 1), date(2025, 12, 2), date(2026, 1, 1), date(2026, 3, 10)],
+            "record_type": ["VACCINATION", "TREATMENT", "ILLNESS", "ILLNESS"],
+            "description": ["Routine vaccination", "Routine deworming", "Reported sick", "Reported sick"],
+        }),
+        "mortality": pd.DataFrame({"animal_id": [], "date_of_death": []}),
+        "commercial": pd.DataFrame({"animal_id": [], "date": []}),
+        "herd_activities": pd.DataFrame({"date": [date(2026, 1, 20)], "species": ["GOAT"],
+                                         "activity": ["DEWORMING"], "product": ["Nilzan"]}),
+    }
+
+
+def test_features_use_only_what_was_known_on_the_snapshot_day():
+    data = farm_with_history()
+    table = features(labels(data, start=date(2026, 3, 1), end=date(2026, 4, 30)), data)
+    row = table[table["snapshot"] == pd.Timestamp(2026, 3, 1)].iloc[0]
+    assert row["age_days"] == 364                        # born 2 March 2025
+    assert row["days_since_deworming"] == 40             # herd session 20 Jan is later than its own (2 Dec)
+    assert row["days_since_vaccination"] == 120          # 1 Nov 2025
+    assert row["illnesses_last_90_days"] == 1            # 1 Jan counts; 10 March is in the future
+    assert row["rainy_season"] == 1                      # mid-March is the long rains
+    assert row["ill_within_30_days"] == 1                # and it does fall ill on 10 March
+
+
+def test_never_done_counts_as_a_year():
+    data = farm_with_history()
+    data["health"] = data["health"][data["health"]["record_type"] == "ILLNESS"]
+    data["herd_activities"] = data["herd_activities"].iloc[0:0]
+    table = features(labels(data, start=date(2026, 3, 1), end=date(2026, 4, 30)), data)
+    assert set(table["days_since_deworming"]) == {365} and set(table["days_since_vaccination"]) == {365}
