@@ -82,7 +82,7 @@ def test_a_worker_imports_into_their_farmers_farm_only(app, client):
 def test_the_template_can_be_downloaded(client):
     farm_with_worker(client)
     as_farmer(client)
-    response = client.get("/records/import/template.csv")
+    response = client.get("/records/import/animals/template.csv")
     assert response.mimetype == "text/csv"
     assert response.data.decode().startswith("tag_number,species,sex,breed,date_of_birth,castrated,notes")
-    assert b"Add many from a CSV file" in client.get("/records/add").data
+    assert b"Import from a CSV file" in client.get("/records/add").data

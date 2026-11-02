@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from flask import Blueprint, abort, redirect, render_template, url_for
+from flask import Blueprint, abort, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import func, select
 
@@ -86,3 +86,27 @@ def status_detail(key):
     title, work_out = STATUS_PAGES[key]
     return render_template(f"status/{key}.html", title=title, s=work_out(current_farm_id()),
                            unwell_days=status.UNWELL_DAYS, today=date.today())
+
+RISK_LEVELS = ("High", "Medium", "Low")
+
+
+@main_bp.route("/risk")
+@farmer_required
+def illness_risk():
+    """Every animal on the farm with its chance of falling ill in the next 30
+    days, as Low, Medium or High (the model from ml/), riskiest first."""
+    # Imported here, not at the top: pandas and scikit-learn are only loaded
+    # when someone opens this page, so the rest of the app starts quickly.
+    from ml.predict import predict_farm
+
+    level = request.args.get("level", "High")
+    if level not in RISK_LEVELS + ("All",):
+        level = "High"
+    try:
+        table = predict_farm(current_farm_id())
+    except FileNotFoundError:
+        return render_template("status/risk.html", missing=True)
+    counts = {name: int((table["risk"] == name).sum()) if len(table) else 0 for name in RISK_LEVELS}
+    shown = table if level == "All" or not len(table) else table[table["risk"] == level]
+    return render_template("status/risk.html", missing=False, rows=shown.to_dict("records"),
+                           counts=counts, level=level, total=len(table), today=date.today())

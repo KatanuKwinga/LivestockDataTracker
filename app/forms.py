@@ -68,8 +68,9 @@ class ResetPasswordForm(FlaskForm):
         validators=[DataRequired(), EqualTo("password", message="The passwords don't match.")],
     )
     submit = SubmitField("Save new password")
-    
-class ImportAnimalsForm(FlaskForm):
+
+class ImportFileForm(FlaskForm):
+    """Upload box on the import page"""
     file = FileField("CSV file", validators=[FileRequired(message="Choose a file to upload."),
                                              FileAllowed(["csv"], "Upload a .csv file (in Excel: Save As, CSV).")])
     submit = SubmitField("Check and import")

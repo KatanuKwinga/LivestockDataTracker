@@ -7,8 +7,8 @@ from sqlalchemy.exc import IntegrityError
 from app.extensions import db
 from app.farm import (current_farm_id, farm_animals, get_farm_animal_or_404,
                       search_animals, still_on_farm, suggest_tag_number)
-from app.csv_import import TEMPLATE, read_animals
-from app.forms import AnimalForm, ImportAnimalsForm
+from app.csv_import import KINDS
+from app.forms import AnimalForm, ImportFileForm
 from app.models import Livestock
 
 records_bp = Blueprint("records", __name__, url_prefix="/records")
@@ -155,32 +155,44 @@ def saved(animal_id):
 
 # ---------- adding many animals at once from a CSV file ----------
 
-@records_bp.route("/import", methods=["GET", "POST"])
+@records_bp.route("/import", defaults={"kind": "animals"}, methods=["GET", "POST"])
+@records_bp.route("/import/<kind>", methods=["GET", "POST"])
 @login_required
-def import_animals():
-    """Upload a CSV of animals. Every row is checked first: either all of
-    them are saved, or none are and each problem is listed."""
-    form = ImportAnimalsForm()
+def import_file(kind):
+    """Upload a CSV of animals, health records or weights. Every row is
+    checked first: either all of them are saved, or none are and each
+    problem is listed. The same route serves all three; KINDS says which
+    reader checks the rows and what the page explains."""
+    if kind not in KINDS:
+        abort(404)
+    info = KINDS[kind]
+    form = ImportFileForm()
     problems = []
     if form.validate_on_submit():
-        animals, problems = read_animals(form.file.data.read(), current_farm_id())
+        rows, problems = info["read"](form.file.data.read(), current_farm_id())
         if not problems:
-            db.session.add_all(animals)
+            db.session.add_all(rows)
             try:
                 db.session.commit()
             except IntegrityError:
-                # Someone added one of these tags in the moment between the check and the save.
+                # Someone else changed the farm in the moment between the check
+                # and the save (e.g. added one of these tags).
                 db.session.rollback()
-                problems = [(None, "One of the tags was added by someone else just now. Upload the file again.")]
+                problems = [(None, "Someone changed the farm's records just now. Upload the file again.")]
             else:
-                flash(f"{len(animals)} animal{'s' if len(animals) != 1 else ''} added from the file.", "success")
-                return redirect(url_for("herd.list_animals", status="all"))
-    return render_template("records/import.html", form=form, problems=problems)
+                flash(f"{len(rows)} {info['noun']}{'s' if len(rows) != 1 else ''} added from the file.", "success")
+                if kind == "animals":
+                    return redirect(url_for("herd.list_animals", status="all"))
+                return redirect(url_for("records.import_file", kind=kind))
+    return render_template("records/import.html", form=form, problems=problems,
+                           kind=kind, info=info, kinds=KINDS)
 
 
-@records_bp.route("/import/template.csv")
+@records_bp.route("/import/<kind>/template.csv")
 @login_required
-def import_template():
+def import_template(kind):
     """An example file with the right column headings, to fill in."""
-    return Response(TEMPLATE, mimetype="text/csv",
-                    headers={"Content-Disposition": "attachment; filename=animals_template.csv"})
+    if kind not in KINDS:
+        abort(404)
+    return Response(KINDS[kind]["template"], mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename={kind}_template.csv"})

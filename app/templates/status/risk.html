@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Illness risk{% endblock %}
+{% block content %}
+{% set BADGE = {"High": "bad", "Medium": "warn", "Low": "good"} %}
+<a class="back" href="{{ url_for('main.dashboard') }}"><svg class="i"><use href="#i-back"/></svg>Home</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Prediction{% if not missing %} &middot; {{ today.strftime("%d %b %Y") }}{% endif %}</span>
+    <h1>Illness <em>risk</em></h1>
+    <p>Which animals to check first: each animal's chance of falling ill in the next 30 days, worked out from its records.</p>
+  </div>
+</div>
+
+{% if missing %}
+  <div class="empty">The prediction model hasn't been trained yet. Run <span class="mono">python -m ml.train</span>, then open this page again.</div>
+{% elif not total %}
+  <div class="empty">No cattle, goats or sheep on the farm yet.</div>
+{% else %}
+  <div class="filter-bar">
+    {% for name in ("High", "Medium", "Low") %}
+      <a class="btn btn-small {{ 'btn-olive' if level == name else 'btn-ghost' }}" href="{{ url_for('main.illness_risk', level=name) }}">{{ name }} &middot; {{ counts[name] }}</a>
+    {% endfor %}
+    <a class="btn btn-small {{ 'btn-olive' if level == 'All' else 'btn-ghost' }}" href="{{ url_for('main.illness_risk', level='All') }}">All &middot; {{ total }}</a>
+  </div>
+
+  {% if rows %}
+    <section class="panel"><div class="table-wrap"><table class="table rows-link">
+      <thead><tr><th>Animal</th><th>Species</th><th>Risk</th><th>Chance</th><th>Why</th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td><a class="row-link mono" href="{{ url_for('herd.animal_detail', animal_id=r.animal_id) }}">{{ r.tag }}</a></td>
+            <td>{{ r.species|title }}</td>
+            <td><span class="badge badge-{{ BADGE[r.risk] }}">{{ r.risk }}</span></td>
+            <td class="mono">{{ "%.0f"|format(r.chance * 100) }}%</td>
+            <td>{{ r.reasons|join("; ") }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div></section>
+  {% else %}
+    <div class="empty">No animals at this level.</div>
+  {% endif %}
+
+  <p class="muted" style="margin-top:16px">
+    High means about 12 in 100 such animals fall ill within a month, Low about 5 in 100. It is a guide to which
+    animals to look at first, not a diagnosis. The model learned from simulated farms based on Kwetu's records,
+    so it is only as good as the records: an illness or deworming that wasn't written down can't be counted.
+  </p>
+{% endif %}
+{% endblock %}

@@ -9,7 +9,7 @@ import joblib
 import pandas as pd
 
 from app.models import CommercialInfo, HealthRecord, HerdActivity, Livestock, MortalityRecord
-from ml.dataset import FEATURES, SPECIES, exits, features
+from ml.dataset import CAP_DAYS, FEATURES, SPECIES, exits, features
 from ml.train import MODEL_PATH
 
 # On the test rows, animals below 6% fell ill 5% of the time, 6-10% about 8%,
@@ -26,6 +26,17 @@ def risk_level(chance):
         return "Medium"
     return "Low"
 
+def reasons(row):
+    """The clues behind an animal's level, in plain words for the farmer."""
+    said = []
+    ill = int(row["illnesses_last_year"])
+    if ill:
+        said.append(f"Ill {ill} time{'s' if ill > 1 else ''} in the last year")
+    if row["days_since_deworming"] >= CAP_DAYS:
+        said.append("No deworming recorded in the last year")
+    elif row["days_since_deworming"] > 90:
+        said.append(f"Last dewormed {int(row['days_since_deworming'])} days ago")
+    return said or ["No warning signs in the records"]
 
 def farm_data(farm_id):
     """The farm's records from the database, in the same shape as the simulator's tables."""
@@ -73,6 +84,7 @@ def predict_farm(farm_id, today=None, model=None):
     table["age_days"] = table["age_days"].fillna(UNKNOWN_AGE_DAYS)
     table["chance"] = model.predict_proba(table[["species"] + FEATURES])[:, 1]
     table["risk"] = table["chance"].map(risk_level)
+    table["reasons"] = table.apply(reasons, axis=1)
     table = table.merge(data["livestock"][["animal_id", "tag"]], on="animal_id")
     return table.sort_values("chance", ascending=False).reset_index(drop=True)
 

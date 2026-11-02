@@ -1,18 +1,25 @@
 {% extends "base.html" %}
 {% from "_macros.html" import submit %}
-{% block title %}Add animals from a file{% endblock %}
+{% block title %}Add {{ info.title }} from a file{% endblock %}
 {% block content %}
 <a class="back" href="{{ url_for('records.choose_species') }}"><svg class="i"><use href="#i-back"/></svg>Add a record</a>
 <div class="page-head">
   <div>
     <span class="eyebrow">Add a record &middot; From a file</span>
-    <h1>Add animals from a <em>CSV file</em></h1>
-    <p>Fill in a spreadsheet with one animal per row, save it as CSV, and upload it here.</p>
+        <h1>Add {{ info.title }} from a <em>CSV file</em></h1>
+    <p>Fill in a spreadsheet, save it as CSV, and upload it here. {{ info.intro }}</p>
   </div>
 </div>
 
+{# One page for every kind of file: these links switch between them. #}
+<nav class="segmented import-kinds" aria-label="What the file holds">
+  {% for key, other in kinds.items() %}
+    <a class="seg" href="{{ url_for('records.import_file', kind=key) }}"{% if key == kind %} aria-current="page"{% endif %}><span>{{ other.title|capitalize }}</span></a>
+  {% endfor %}
+</nav>
+
 {% if problems %}
-  <section class="panel" role="alert">
+  <section class="panel" role="alert" style="margin-top:16px">
     <div class="panel-head"><h3>Nothing was added: {{ problems|length }} problem{{ "s" if problems|length != 1 }} to fix</h3></div>
     <p class="muted">Correct these in your spreadsheet, save it as CSV again and upload it. Row numbers count the headings as row 1, as in Excel.</p>
     <div class="table-wrap"><table class="table">
@@ -29,9 +36,12 @@
     {{ form.file(accept=".csv") }}
     {% if form.file.errors %}<ul class="errors">{% for e in form.file.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
   </div>
+    {% if kind == "health" %}
+    <p class="muted">Medicines in this file are not taken off the pharmacy stock: the file is for past records. Record today's treatments on the health form, which updates the stock.</p>
+  {% endif %}
   <div class="form-actions">
     {{ submit("Check and import", "btn-olive") }}
-    <a class="btn btn-ghost" href="{{ url_for('records.import_template') }}">Download the template</a>
+    <a class="btn btn-ghost" href="{{ url_for('records.import_template', kind=kind) }}">Download the template</a>
   </div>
 </form>
 
@@ -40,13 +50,9 @@
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Column</th><th>Needed?</th><th>What to write</th></tr></thead>
     <tbody>
-      <tr><td class="mono">tag_number</td><td>Yes</td><td>Letters, numbers and hyphens, e.g. C101. Must be new on this farm.</td></tr>
-      <tr><td class="mono">species</td><td>Yes</td><td>cattle, goat, sheep or chicken</td></tr>
-      <tr><td class="mono">sex</td><td>Yes</td><td>female or male (or F / M)</td></tr>
-      <tr><td class="mono">breed</td><td>No</td><td>e.g. Boran</td></tr>
-      <tr><td class="mono">date_of_birth</td><td>No</td><td>2024-03-01 or 01/03/2024</td></tr>
-      <tr><td class="mono">castrated</td><td>No</td><td>yes for a castrated male; otherwise leave empty</td></tr>
-      <tr><td class="mono">notes</td><td>No</td><td>Anything else, up to 500 characters</td></tr>
+      {% for column, needed, help in info.columns %}
+        <tr><td class="mono">{{ column }}</td><td>{{ "Yes" if needed else "No" }}</td><td>{{ help }}</td></tr>
+      {% endfor %}
     </tbody>
   </table></div>
 </section>

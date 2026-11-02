@@ -350,6 +350,12 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; min-width
 .when[hidden] { display: none; }
 .form-narrow { max-width: 560px; }
 
+/* ---------- import page: links that look like the segmented buttons ---------- */
+a.seg { text-decoration: none; color: var(--ink); font-size: 14.5px; }
+a.seg[aria-current="page"] span { background: var(--olive-800); border-color: var(--olive-800); color: var(--sand-soft); }
+a.seg:focus-visible { outline: none; }
+a.seg:focus-visible span { outline: 2px solid var(--tan); outline-offset: 3px; }
+
 /* ---------- treat a group: the animal checklist ---------- */
 .check-field { border: 0; margin: 0; padding: 0; min-width: 0; }
 .check-field legend { padding: 0; margin-bottom: 9px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--olive-700); }

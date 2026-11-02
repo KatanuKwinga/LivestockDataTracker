@@ -8,7 +8,7 @@
     <h1>Which <em>animals?</em></h1>
     <p>Choose the species the record is about. Tag numbers start with the letters shown.</p>
   </div>
-  <a class="btn btn-ghost" href="{{ url_for('records.import_animals') }}">Add many from a CSV file</a>
+  <a class="btn btn-ghost" href="{{ url_for('records.import_file') }}">Import from a CSV file</a>
 </div>
 <div class="tiles">
   {% for slug, species in species_choices.items() %}
