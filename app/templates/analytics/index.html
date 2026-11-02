@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block content %}
+{% set t = data.totals %}
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Analytics &middot; {{ data.months[0] }} to {{ data.months[-1] }}</span>
+    <h1>A Farm Analysis</h1>
+    <p>Births, deaths, sales and illnesses over the last {{ months }} months, worked out from your records.</p>
+  </div>
+  <div class="filter-bar">
+    <a class="btn btn-small {{ 'btn-olive' if months == 12 else 'btn-ghost' }}" href="{{ url_for('analytics.index') }}">12 months</a>
+    <a class="btn btn-small {{ 'btn-olive' if months == 24 else 'btn-ghost' }}" href="{{ url_for('analytics.index', months=24) }}">24 months</a>
+  </div>
+</div>
+
+<section class="stats" aria-label="Totals for the period">
+  <div class="stat"><span class="label">Born on the farm</span><span class="num">{{ t.born }}</span></div>
+  <div class="stat"><span class="label">Died</span><span class="num">{{ t.died }}</span></div>
+  <div class="stat"><span class="label">Sold</span><span class="num">{{ t.sold }}</span></div>
+  <div class="stat"><span class="label">Sales (KES)</span><span class="num num-money">{{ "{:,.0f}".format(t.income) }}</span></div>
+  <div class="stat"><span class="label">Illnesses recorded</span><span class="num">{{ t.ill }}</span></div>
+</section>
+
+<section class="panel chart-panel">
+  <div class="panel-head"><h3>Herd size</h3><span class="muted">Animals on the farm at the end of each month</span></div>
+  <div class="chart-box"><canvas id="herdChart" role="img" aria-label="Herd size by species, month by month"></canvas></div>
+  <details class="chart-table"><summary>Show as a table</summary><div class="table-wrap"><table class="table">
+    <thead><tr><th>Month</th>{% for s in data.species %}<th>{{ s.name }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for m in data.months %}{% set i = loop.index0 %}<tr><td class="mono">{{ m }}</td>{% for s in data.species %}<td class="mono">{{ s.herd[i] }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table></div></details>
+</section>
+
+<div class="chart-grid">
+  {% for key, title in (("born", "Born on the farm"), ("died", "Deaths"), ("sold", "Animals sold")) %}
+    <section class="panel chart-panel">
+      <div class="panel-head"><h3>{{ title }}</h3><span class="mono muted">{{ t[key] }}</span></div>
+      <div class="chart-box chart-box-small"><canvas id="{{ key }}Chart" role="img" aria-label="{{ title }} per month"></canvas></div>
+      <details class="chart-table"><summary>Show as a table</summary><div class="table-wrap"><table class="table">
+        <thead><tr><th>Month</th><th>{{ title }}</th></tr></thead>
+        <tbody>{% for m in data.months %}<tr><td class="mono">{{ m }}</td><td class="mono">{{ data[key][loop.index0] }}</td></tr>{% endfor %}</tbody>
+      </table></div></details>
+    </section>
+  {% endfor %}
+</div>
+
+<div class="chart-grid chart-grid-2">
+  <section class="panel chart-panel">
+    <div class="panel-head"><h3>Illnesses</h3><span class="muted">New illnesses recorded each month</span></div>
+    <div class="chart-box"><canvas id="illChart" role="img" aria-label="Illnesses per month by species"></canvas></div>
+    <details class="chart-table"><summary>Show as a table</summary><div class="table-wrap"><table class="table">
+      <thead><tr><th>Month</th>{% for s in data.species %}<th>{{ s.name }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for m in data.months %}{% set i = loop.index0 %}<tr><td class="mono">{{ m }}</td>{% for s in data.species %}<td class="mono">{{ s.ill[i] }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    </table></div></details>
+  </section>
+
+  <section class="panel chart-panel">
+    <div class="panel-head"><h3>Causes of death</h3><span class="muted">Over the whole period</span></div>
+    {% if data.causes %}
+      <div class="chart-box"><canvas id="causeChart" role="img" aria-label="Causes of death, commonest first"></canvas></div>
+      <details class="chart-table"><summary>Show as a table</summary><div class="table-wrap"><table class="table">
+        <thead><tr><th>Cause</th><th>Deaths</th></tr></thead>
+        <tbody>{% for c in data.causes %}<tr><td>{{ c.cause }}</td><td class="mono">{{ c.count }}</td></tr>{% endfor %}</tbody>
+      </table></div></details>
+    {% else %}
+      <div class="empty">No deaths recorded in this period.</div>
+    {% endif %}
+  </section>
+</div>
+
+<script id="analyticsData" type="application/json">{{ data|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/analytics.js') }}"></script>
+{% endblock %}

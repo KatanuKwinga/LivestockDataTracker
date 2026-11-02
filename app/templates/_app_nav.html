@@ -4,8 +4,8 @@
     {% set links = [("main", "main.dashboard", "Home"), ("records", "records.choose_species", "Add record"),
                 ("group", "group.index", "Treat a group"), ("herd", "herd.list_animals", "Records"),
                 ("pharmacy", "pharmacy.index", "Pharmacy")] %}{% if is_farmer %}
-    {% set links = links + [("workers", "workers.list_workers", "Workers")] %}
-  {% endif %}
+    {% set links = links + [("analytics", "analytics.index", "Analytics"), ("workers", "workers.list_workers", "Workers")] %}
+    {% endif %}
   {% set parts = current_user.name.split() %}
   <nav class="app-nav" id="appNav" aria-label="Main">
     <a class="brand" href="{{ url_for('main.dashboard') }}"><svg class="logo" aria-hidden="true"><use href="#mark"/></svg>Livestock Tracker</a>

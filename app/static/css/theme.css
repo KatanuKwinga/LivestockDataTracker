@@ -391,6 +391,17 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; min-width
 
 /* ---------- dashboard: the six farm statuses ---------- */
 .status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+
+/* ---------- analytics ---------- */
+.stats + .chart-panel, .chart-panel + .chart-grid, .chart-grid + .chart-grid { margin-top: 14px; }
+.chart-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.chart-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.chart-box { position: relative; height: 280px; }
+.chart-box-small { height: 200px; }
+.chart-table { margin-top: 12px; }
+.chart-table summary { cursor: pointer; font-size: 13.5px; color: var(--ink-soft); }
+.chart-table table.table { min-width: 0; margin-top: 8px; }
+.stat .num-money { font-size: clamp(26px, 6.5vw, 42px); }   /* big sums still fit a phone-width card */
 .status-tile { position: relative; display: grid; gap: 6px; align-content: start; padding: 18px 20px 18px 24px; background: var(--card);
   border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); text-decoration: none; transition: border-color .2s, transform .2s; }
 .status-tile:hover { border-color: var(--olive-500); transform: translateY(-2px); }
@@ -414,6 +425,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; min-width
   .home-grid { grid-template-columns: minmax(0, 1fr); }
   .history { grid-template-columns: minmax(0, 1fr); }
   .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .chart-grid, .chart-grid-2 { grid-template-columns: minmax(0, 1fr); }
   .menu-btn { display: inline-flex; margin-left: auto; }
   .app-nav { flex-wrap: wrap; border-radius: 26px; }
   .nav-links, .nav-user { display: none; }
