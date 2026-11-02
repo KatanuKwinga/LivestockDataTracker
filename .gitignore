@@ -14,3 +14,7 @@ venv/
 .vscode/
 .idea/
 *.log
+
+ml/data/
+#The trained model
+ml/artifacts/*.joblib
