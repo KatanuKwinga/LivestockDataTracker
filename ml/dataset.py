@@ -53,7 +53,7 @@ def labels(data, start, end, every_days=EVERY_DAYS, horizon=HORIZON_DAYS):
 # the farmer could know that day. Looking later would be seeing the future.
 
 FEATURES = ["age_days", "days_since_deworming", "days_since_vaccination",
-            "illnesses_last_90_days", "rainy_season"]
+            "illnesses_last_year", "rainy_season"]
 CAP_DAYS = 365          # "never", or more than a year ago, both count as 365
 RAINY_MONTHS = (3, 4, 5, 10, 11, 12)
 DEWORMING_NOTE = "Routine deworming"   # what the group deworming form writes (app/routes/group.py)
@@ -92,14 +92,14 @@ def features(table, data):
 
     table["days_since_vaccination"] = days_since(table, health[health["record_type"] == "VACCINATION"], "animal_id")
 
-    # Illnesses in the 90 days up to and including the snapshot.
+    # Illnesses in the year up to and including the snapshot.
     ill = health[health["record_type"] == "ILLNESS"]
     counts = []
     for day, rows in table.groupby("snapshot", sort=False):
-        recent = ill[(ill["date"] > day - timedelta(days=90)) & (ill["date"] <= day)]
+        recent = ill[(ill["date"] > day - timedelta(days=365)) & (ill["date"] <= day)]        
         counts.append(rows["animal_id"].map(recent["animal_id"].value_counts()).fillna(0))
-    table["illnesses_last_90_days"] = pd.concat(counts).astype(int)
-
+    table["illnesses_last_year"] = pd.concat(counts).astype(int)
+    
     # Rainy season: is the middle of the next 30 days in a rainy month?
     table["rainy_season"] = (table["snapshot"] + timedelta(days=15)).dt.month.isin(RAINY_MONTHS).astype(int)
     return table.drop(columns="date_of_birth")

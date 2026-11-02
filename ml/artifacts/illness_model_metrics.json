@@ -1,0 +1,18 @@
+{
+  "test_rows": 25289,
+  "share_that_fell_ill": 0.07,
+  "accuracy_if_always_no": 0.93,
+  "roc_auc": 0.599,
+  "precision_of_flagged": 0.111,
+  "recall_of_flagged": 0.317,
+  "odds_multipliers": {
+    "species_CATTLE": 0.46,
+    "species_GOAT": 0.55,
+    "species_SHEEP": 0.53,
+    "age_days": 1.01,
+    "days_since_deworming": 1.14,
+    "days_since_vaccination": 1.01,
+    "illnesses_last_year": 1.43,
+    "rainy_season": 1.1
+  }
+}

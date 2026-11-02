@@ -65,7 +65,7 @@ def test_features_use_only_what_was_known_on_the_snapshot_day():
     assert row["age_days"] == 364                        # born 2 March 2025
     assert row["days_since_deworming"] == 40             # herd session 20 Jan is later than its own (2 Dec)
     assert row["days_since_vaccination"] == 120          # 1 Nov 2025
-    assert row["illnesses_last_90_days"] == 1            # 1 Jan counts; 10 March is in the future
+    assert row["illnesses_last_year"] == 1            # 1 Jan counts; 10 March is in the future
     assert row["rainy_season"] == 1                      # mid-March is the long rains
     assert row["ill_within_30_days"] == 1                # and it does fall ill on 10 March
 
