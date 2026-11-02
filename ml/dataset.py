@@ -67,6 +67,7 @@ def days_since(table, events, by):
     # merge_asof insists both date columns are stored the same way, so make them match.
     left["snapshot"] = left["snapshot"].astype("datetime64[ns]")
     events["last"] = events["last"].astype("datetime64[ns]")
+    events[by] = events[by].astype(left[by].dtype)       # an empty table's columns have no type of their own
     found = pd.merge_asof(left, events, left_on="snapshot", right_on="last", by=by)
     return (found["snapshot"] - found["last"]).dt.days.fillna(CAP_DAYS).clip(upper=CAP_DAYS)
 
@@ -99,7 +100,7 @@ def features(table, data):
         recent = ill[(ill["date"] > day - timedelta(days=365)) & (ill["date"] <= day)]        
         counts.append(rows["animal_id"].map(recent["animal_id"].value_counts()).fillna(0))
     table["illnesses_last_year"] = pd.concat(counts).astype(int)
-    
+
     # Rainy season: is the middle of the next 30 days in a rainy month?
     table["rainy_season"] = (table["snapshot"] + timedelta(days=15)).dt.month.isin(RAINY_MONTHS).astype(int)
     return table.drop(columns="date_of_birth")
