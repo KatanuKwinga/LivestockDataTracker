@@ -251,7 +251,7 @@ a.tile.is-primary:hover { background: var(--olive-700); }
 .stat .label { font-size: 13.5px; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
 .stat .num { font-family: var(--display); font-size: 42px; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
 .composition { display: flex; height: 14px; border-radius: 999px; overflow: hidden; background: var(--line); }
-.composition span { display: block; height: 100%; }
+.composition span { display: block; height: 100%; width: var(--share); }   /* each species' share of the bar */
 .legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--ink-soft); margin-top: 12px; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; }
 .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
@@ -323,6 +323,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; min-width
 .badge-on_farm { background: var(--good-bg); color: var(--good); }
 .badge-sold { background: var(--info-bg); color: var(--olive-700); }
 .badge-died { background: var(--bad-bg); color: var(--bad); }
+.badge-left { background: var(--warn-bg); color: var(--warn); }
 .pager { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13.5px; }
 .pager-links { display: flex; align-items: center; gap: 10px; }
 .animal-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 18px 24px; background: var(--card); border: 1px solid var(--line);

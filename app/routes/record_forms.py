@@ -7,8 +7,8 @@ from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.farm import farm_animals, get_farm_animal_or_404, suggest_tag_number
-from app.forms import BreedingForm, DeathForm, HealthForm, ProductionForm, SaleForm, WeightForm
-from app.models import (BreedingRecord, CommercialInfo, HealthRecord, Farmer, Livestock, MortalityRecord,
+from app.forms import BreedingForm, DeathForm, DepartureForm, HealthForm, ProductionForm, SaleForm, WeightForm
+from app.models import (BreedingRecord, CommercialInfo, Departure, HealthRecord, Farmer, Livestock, MortalityRecord,
                         ProductionData, WeightRecord)
 from app.routes.herd import MARKET_WORDS
 from app.routes.records import CATEGORIES, SLUG_FOR, records_bp, species_or_404
@@ -16,8 +16,7 @@ from app.stock import add_line
 from ml.reference import CONDITIONS, GESTATION_DAYS
 
 # What happened to the animal, in words, for messages and the saved page.
-STATUS_WORDS = {"SOLD": "was sold", "DIED": "has died"}
-
+STATUS_WORDS = {"SOLD": "was sold", "DIED": "has died", "LEFT": "has left the farm"}
 # Causes offered under the Cause of death box, on top of the species' diseases.
 OTHER_CAUSES = ["Unknown", "Old age", "Predator", "Accident", "Poisoning", "Difficult birth"]
 
@@ -273,6 +272,31 @@ def mortality_form(species_slug, animal_id):
     return render_template("records/mortality_form.html", form=form, animal=animal, species=species,
                            species_slug=species_slug, causes=causes, today=date.today().isoformat())
 
+@records_bp.route("/add/<species_slug>/departure/<int:animal_id>", methods=["GET", "POST"])
+@login_required
+def departure_form(species_slug, animal_id):
+    """Given away, slaughtered at home, lost, stolen or missing: the animal
+    leaves the herd lists like a sold or dead one, and its records are kept."""
+    species, animal, leave = animal_for_record(species_slug, animal_id)
+    if leave:
+        return leave
+
+    form = DepartureForm(animal)
+    if form.validate_on_submit():
+        db.session.add(Departure(animal_id=animal.animal_id, date=form.date.data, reason=form.reason.data,
+                                 description=form.description.data or None))
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # animal_id is UNIQUE: if two people record it at once, the second is refused here.
+            db.session.rollback()
+            flash(f"{animal.tag_number} has already been recorded as having left the farm.", "warning")
+            return redirect(url_for("herd.animal_detail", animal_id=animal.animal_id))
+        return redirect(url_for("records.record_saved", animal_id=animal.animal_id, category_key="departure"))
+
+    return render_template("records/departure_form.html", form=form, animal=animal, species=species,
+                           species_slug=species_slug, today=date.today().isoformat())
+
 
 # For the saved page: each category's table, and the id column whose
 # highest value is the newest row.
@@ -281,6 +305,7 @@ NEWEST = {
     "weight": (WeightRecord, WeightRecord.w_record_id),
     "commercial": (CommercialInfo, CommercialInfo.transaction_id),
     "mortality": (MortalityRecord, MortalityRecord.m_record_id),
+    "departure": (Departure, Departure.departure_id),
     "breeding": (BreedingRecord, BreedingRecord.b_record_id),
     "production": (ProductionData, ProductionData.product_id),
 }

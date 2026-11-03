@@ -16,7 +16,7 @@ from app.routes.records import SLUG_FOR, SPECIES_CHOICES
 
 herd_bp = Blueprint("herd", __name__, url_prefix="/herd")
 
-STATUSES = {"on_farm": "On the farm", "sold": "Sold", "died": "Died", "all": "All animals"}
+STATUSES = {"on_farm": "On the farm", "sold": "Sold", "died": "Died", "left": "Left the farm", "all": "All animals"}
 PER_PAGE = 25
 
 
@@ -37,9 +37,10 @@ def list_animals():
         query = query.filter(Livestock.species == SPECIES_CHOICES[species_slug]["value"])
     query = search_animals(query, q)
 
-    # selectinload fetches every row's mortality and sales records in two
-    # extra queries, instead of two per animal, when the table shows status.
-    page = (query.options(selectinload(Livestock.mortality_record), selectinload(Livestock.commercial_records))
+    # selectinload fetches every row's death, sales and departure records in
+    # three extra queries, instead of three per animal, when the table shows status.
+    page = (query.options(selectinload(Livestock.mortality_record), selectinload(Livestock.commercial_records),
+                          selectinload(Livestock.departure)) 
             .order_by(Livestock.species, Livestock.tag_number)
             .paginate(page=request.args.get("page", 1, type=int), per_page=PER_PAGE, error_out=False))
 
@@ -72,8 +73,7 @@ MARKET_WORDS = {"SELL": "to sell", "CULL": "to cull"}
 @login_required
 def mark_for_market(animal_id):
     """Quickly mark an animal to sell or to cull, or take it off the market
-    list. (The Commercial form does the same with a date and a reason.)
-    Anyone on the farm can identify one; the farmer reviews the list from
+    list. Anyone on the farm can identify one; the farmer reviews the list from
     the dashboard's Market tile."""
     animal = get_farm_animal_or_404(animal_id)
     choice = request.form.get("market") or None

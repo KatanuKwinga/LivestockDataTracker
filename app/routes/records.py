@@ -42,7 +42,7 @@ CATEGORIES = [
     {"key": "production", "title": "Production", "blurb": "Milk and eggs", "icon": "i-prod", "endpoint": "records.production_form", "females_only": True},
     {"key": "commercial", "title": "Commercial", "blurb": "Purchases and sales", "icon": "i-sale", "endpoint": "records.commercial_form"},
     {"key": "mortality", "title": "Mortality", "blurb": "Death information", "icon": "i-loss", "endpoint": "records.mortality_form"},
-]
+    {"key": "departure", "title": "Left the farm", "blurb": "Given away, eaten, lost or stolen", "icon": "i-leave", "endpoint": "records.departure_form"},]
 
 
 def species_or_404(species_slug):

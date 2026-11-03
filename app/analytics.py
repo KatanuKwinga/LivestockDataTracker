@@ -6,7 +6,7 @@ up to today. The page is worked out fresh each time, so it always matches the re
 from collections import Counter
 from datetime import date, timedelta
 
-from app.models import CommercialInfo, HealthRecord, Livestock, MortalityRecord
+from app.models import CommercialInfo, Departure, HealthRecord, Livestock, MortalityRecord
 
 SPECIES = [("CATTLE", "Cattle"), ("GOAT", "Goats"), ("SHEEP", "Sheep")]
 TOP_CAUSES = 6          # the commonest causes of death; the rest are added up as "Other"
@@ -45,8 +45,11 @@ def farm_analytics(farm_id, months=12, today=None):
     illnesses = (HealthRecord.query.join(HealthRecord.animal)
                  .filter(Livestock.farmer_id == farm_id, HealthRecord.record_type == "ILLNESS").all())
 
-    # The day each animal left the farm: its death, or its (first) sale.
+    # The day each animal left the farm: its death, its departure (given
+    # away, lost...), or its (first) sale.
     left = {d.animal_id: d.date_of_death for d in deaths}
+    for gone in Departure.query.filter(Departure.animal_id.in_(ids)):
+        left.setdefault(gone.animal_id, gone.date)
     for sale in sales:
         left.setdefault(sale.animal_id, sale.date)
 

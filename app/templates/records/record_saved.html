@@ -28,6 +28,9 @@
         <div><dt>Born dead</dt><dd>{{ record.num_stillborn }}</dd></div>
       {% endif %}
       {% if record.sire %}<div><dt>Father</dt><dd>{{ record.sire.tag_number }}</dd></div>{% endif %}
+    {% elif category.key == "departure" %}
+      <div><dt>Reason</dt><dd>{{ record.reason_label }}</dd></div>
+      {% if record.description %}<div><dt>Notes</dt><dd>{{ record.description }}</dd></div>{% endif %}
     {% elif category.key == "mortality" %}
       <div><dt>Cause</dt><dd>{{ record.cause_of_death }}</dd></div>
       {% if record.age_at_death is not none %}<div><dt>Age</dt><dd>{{ record.age_at_death }} year{{ "" if record.age_at_death == 1 else "s" }}</dd></div>{% endif %}

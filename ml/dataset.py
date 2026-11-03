@@ -11,12 +11,18 @@ SPECIES = ("CATTLE", "GOAT", "SHEEP")      # Kwetu keeps no records of chickens
 
 
 def exits(data):
-    """When each animal left the farm: the day it died or was sold."""
+    """When each animal left the farm: the day it died, was sold, or left
+    another way (given away, lost...). The simulated farms have no
+    departures table, so that part is only there for a real farm."""
     died = pd.DataFrame({"animal_id": data["mortality"]["animal_id"],
                          "date": pd.to_datetime(data["mortality"]["date_of_death"])})
     sold = pd.DataFrame({"animal_id": data["commercial"]["animal_id"],
                          "date": pd.to_datetime(data["commercial"]["date"])})
-    return pd.concat([died, sold])
+    parts = [died, sold]
+    if "departures" in data:
+        parts.append(pd.DataFrame({"animal_id": data["departures"]["animal_id"],
+                                   "date": pd.to_datetime(data["departures"]["date"])}))
+    return pd.concat(parts)
 
 
 def labels(data, start, end, every_days=EVERY_DAYS, horizon=HORIZON_DAYS):

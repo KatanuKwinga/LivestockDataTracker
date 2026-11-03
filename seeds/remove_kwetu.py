@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from app import create_app
 from app.extensions import db
-from app.models import (BreedingRecord, CommercialInfo, HealthRecord, HerdActivity, Livestock, MortalityRecord,
+from app.models import (BreedingRecord, CommercialInfo, Departure, HealthRecord, HerdActivity, Livestock, MortalityRecord,                        
                         PharmacyItem, ProductionData, StockMovement, User, WeightRecord)
 
 EMAIL = "katanukavilakwinga@gmail.com"
@@ -49,7 +49,7 @@ with app.app_context():
     BreedingRecord.query.filter(BreedingRecord.sire_id.in_(animal_ids)).update({"sire_id": None}, synchronize_session=False)
 
     # 2. The animals' own records first, because each one points at its animal.
-    for model in (HealthRecord, WeightRecord, ProductionData, CommercialInfo, MortalityRecord, BreedingRecord):
+    for model in (HealthRecord, WeightRecord, ProductionData, CommercialInfo, MortalityRecord, Departure, BreedingRecord):        
         removed = model.query.filter(model.animal_id.in_(animal_ids)).delete(synchronize_session=False)
         print(f"  {model.__tablename__}: {removed}")
 

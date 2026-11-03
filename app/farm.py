@@ -3,7 +3,7 @@ import re
 from flask_login import current_user
 from sqlalchemy import and_, func, or_, select, true
 
-from app.models import CommercialInfo, Livestock, MortalityRecord
+from app.models import CommercialInfo, Departure, Livestock, MortalityRecord
 from app.models.livestock import TAG_PREFIXES
 
 
@@ -28,18 +28,25 @@ def sold_ids():
     """The ids of animals that have been sold (they have a SELL record)."""
     return select(CommercialInfo.animal_id).where(CommercialInfo.transaction_type == "SELL")
 
+def left_ids():
+    """The ids of animals that left the farm another way (they have a departure record)."""
+    return select(Departure.animal_id)
+
 
 def still_on_farm():
-    """A filter for animals that are still on the farm."""
-    return and_(Livestock.animal_id.not_in(dead_ids()), Livestock.animal_id.not_in(sold_ids()))
+    """A filter for animals that are still on the farm: not dead, not sold, not left."""
+    return and_(Livestock.animal_id.not_in(dead_ids()), Livestock.animal_id.not_in(sold_ids()),
+                Livestock.animal_id.not_in(left_ids()))
 
 
 def status_filter(status):
-    """A filter for the herd page's Status box: "on_farm", "sold", "died" or "all"."""
+    """A filter for the herd page's Status box: "on_farm", "sold", "died", "left" or "all"."""
     if status == "sold":
         return Livestock.animal_id.in_(sold_ids())
     if status == "died":
         return Livestock.animal_id.in_(dead_ids())
+    if status == "left":
+        return Livestock.animal_id.in_(left_ids())
     if status == "all":
         return true()
     return still_on_farm()

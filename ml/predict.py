@@ -8,7 +8,7 @@ from datetime import date
 import joblib
 import pandas as pd
 
-from app.models import CommercialInfo, HealthRecord, HerdActivity, Livestock, MortalityRecord
+from app.models import CommercialInfo, Departure, HealthRecord, HerdActivity, Livestock, MortalityRecord
 from ml.dataset import CAP_DAYS, FEATURES, SPECIES, exits, features
 from ml.train import MODEL_PATH
 
@@ -57,6 +57,9 @@ def farm_data(farm_id):
                                     for c in CommercialInfo.query.filter(CommercialInfo.animal_id.in_(ids),
                                                                          CommercialInfo.transaction_type == "SELL")],
                                    columns=["animal_id", "date"]),
+        "departures": pd.DataFrame([{"animal_id": d.animal_id, "date": d.date}
+                                    for d in Departure.query.filter(Departure.animal_id.in_(ids))],
+                                                                                columns=["animal_id", "date"]),
         "herd_activities": pd.DataFrame([{"date": s.date, "species": s.species, "activity": s.activity}
                                          for s in HerdActivity.query.filter_by(farmer_id=farm_id)],
                                         columns=["date", "species", "activity"]),

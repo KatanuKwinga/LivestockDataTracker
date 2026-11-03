@@ -142,7 +142,16 @@
     <section class="panel wide">
       <div class="panel-head"><h3>Death</h3></div>
       <p><span class="mono">{{ death.date_of_death.strftime("%d %b %Y") }}</span> &middot; {{ death.cause_of_death or "Cause not recorded" }}</p>
-      {% if death.description %}<p class="muted" style="margin-top:6px">{{ death.description }}</p>{% endif %}
+            {% if death.description %}<p class="muted" style="margin-top:6px">{{ death.description }}</p>{% endif %}
+    </section>
+  {% endif %}
+
+  {% if animal.departure %}
+    {% set gone = animal.departure %}
+    <section class="panel wide">
+      <div class="panel-head"><h3>Left the farm</h3></div>
+      <p><span class="mono">{{ gone.date.strftime("%d %b %Y") }}</span> &middot; {{ gone.reason_label }}</p>
+      {% if gone.description %}<p class="muted" style="margin-top:6px">{{ gone.description }}</p>{% endif %}
     </section>
   {% endif %}
 </div>

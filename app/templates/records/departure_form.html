@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, submit %}
+{% block title %}{{ animal.tag_number }} left the farm{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='departure') }}"><svg class="i"><use href="#i-back"/></svg>Back to {{ species.label|lower }}</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">{{ species.label }} &middot; Left the farm</span>
+    <h1><em>{{ animal.tag_number }}</em> left the farm</h1>
+    <p>For an animal that wasn't sold and didn't die here. A sale goes under Commercial, a death under Mortality.
+       Its records are kept, but it leaves the herd lists and can't get new records.</p>
+  </div>
+</div>
+
+<form method="post" novalidate class="form-card">
+  {{ form.hidden_tag() }}
+  {# The same pill buttons as the health form's "What happened?". #}
+  <fieldset class="field segmented-field">
+    <legend>{{ form.reason.label.text }}</legend>
+    <div class="segmented">
+      {% for option in form.reason %}
+        <label class="seg">{{ option() }}<span>{{ option.label.text }}</span></label>
+      {% endfor %}
+    </div>
+    {% for error in form.reason.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+  </fieldset>
+
+  <div class="form-grid">
+    {{ field(form.date, max=today, help="The day it left, or the day it was found missing.") }}
+    {{ field(form.description, wide=True, rows=3,
+             help="Who it was given to, where it was last seen, or what happened. Needed for \"Other\".") }}
+  </div>
+
+  <div>
+    <label class="confirm-box{% if form.confirm.errors %} has-error{% endif %}">
+      {{ form.confirm() }}
+      <span>I understand that <b>{{ animal.tag_number }}</b> will be marked as <b>left the farm</b> and leave the herd lists. This can't be undone on the website yet.</span>
+    </label>
+    {% for error in form.confirm.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+  </div>
+
+  <div class="form-actions">
+    {{ submit("Save") }}
+    <a class="btn btn-ghost" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='departure') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

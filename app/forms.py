@@ -10,6 +10,7 @@ from wtforms.validators import (DataRequired, Email, EqualTo, InputRequired, Len
 
 from app.farm import still_on_farm, tag_in_use
 from app.models import Livestock, PharmacyItem, ProductionData, User
+from app.models.departure import REASONS
 from app.models.pharmacy import KINDS, UNITS
 from ml.reference import VACCINES
 
@@ -346,6 +347,35 @@ class DeathForm(FlaskForm):
 
     def validate_date_of_death(self, field):
         check_record_date(field, self.animal)
+
+
+class DepartureForm(FlaskForm):
+    """An animal that left the farm without being sold or dying on it.
+    Like a sale or a death it takes the animal off the farm, so it must be
+    confirmed."""
+    reason = RadioField("Why did it leave?", choices=list(REASONS.items()),
+                        validators=[DataRequired(message="Choose why it left.")])
+    date = DateField("Date", default=date.today, validators=[DataRequired(message="Enter the date it left.")])
+    description = TextAreaField("Notes", filters=[strip_spaces], validators=[Optional(), Length(max=500)])
+    confirm = BooleanField("I understand", validators=[DataRequired(message="Tick the box to confirm.")])
+    submit = SubmitField("Save")
+
+    def __init__(self, animal, **kwargs):
+        super().__init__(**kwargs)
+        self.animal = animal
+
+    def validate_date(self, field):
+        check_record_date(field, self.animal)
+
+    def validate(self, extra_validators=None):
+        valid = super().validate(extra_validators)
+        # "Other" says nothing on its own, so the notes must explain it. This
+        # check lives here, not in a validate_description method, because the
+        # Optional() rule stops all checks on an empty box.
+        if self.reason.data == "OTHER" and not self.description.data:
+            self.description.errors.append("Write what happened.")
+            valid = False
+        return valid
 
 
 

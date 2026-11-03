@@ -147,15 +147,18 @@ def farm_animals_by_tag(farm_id):
     instead of one per row. Their deaths and sales are loaded in the same
     go, because left_on() needs them."""
     animals = (Livestock.query.filter_by(farmer_id=farm_id)
-               .options(selectinload(Livestock.mortality_record), selectinload(Livestock.commercial_records)))
+               .options(selectinload(Livestock.mortality_record), selectinload(Livestock.commercial_records),
+                        selectinload(Livestock.departure)))
     return {animal.tag_number: animal for animal in animals}
 
 
 def left_on(animal):
-    """The day the animal died or was sold, or None if it is still here.
-    Old records can still be added for it, but none dated after it left."""
+    """The day the animal died, was sold or left another way, or None if it
+    is still here. Old records can still be added for it, but none dated after it left."""
     if animal.mortality_record is not None:
         return animal.mortality_record.date_of_death
+    if animal.departure is not None:
+        return animal.departure.date
     sales = [r.date for r in animal.commercial_records if r.transaction_type == "SELL"]
     return min(sales) if sales else None
 
@@ -183,7 +186,7 @@ def check_animal_and_date(value, animals, problem):
             problem(f"{tag} was born on {animal.date_of_birth:%d %b %Y}, so the date can't be earlier.")
             day = None
         elif animal is not None and left_on(animal) and day > left_on(animal):
-            word = "died" if animal.mortality_record is not None else "was sold"
+            word = {"DIED": "died", "SOLD": "was sold", "LEFT": "left the farm"}[animal.status]
             problem(f"{tag} {word} on {left_on(animal):%d %b %Y}, so the date can't be later.")
             day = None
     return animal, day

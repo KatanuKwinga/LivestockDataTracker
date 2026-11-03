@@ -36,6 +36,7 @@ class Livestock(db.Model):
     production_records = db.relationship("ProductionData", back_populates="animal", cascade="all, delete-orphan", order_by="ProductionData.date")
     commercial_records = db.relationship("CommercialInfo", back_populates="animal", cascade="all, delete-orphan", order_by="CommercialInfo.date")
     mortality_record = db.relationship("MortalityRecord", back_populates="animal", uselist=False, cascade="all, delete-orphan")
+    departure = db.relationship("Departure", back_populates="animal", uselist=False, cascade="all, delete-orphan")   
     birth_event = db.relationship("BreedingRecord", foreign_keys=[b_record_id], back_populates="offspring")
     dam_events = db.relationship("BreedingRecord", foreign_keys="BreedingRecord.animal_id", back_populates="dam")
     sire_events = db.relationship("BreedingRecord", foreign_keys="BreedingRecord.sire_id", back_populates="sire")
@@ -52,11 +53,13 @@ class Livestock(db.Model):
     
     @property
     def status(self):
-        """"DIED", "SOLD" or "ON_FARM", worked out from the animal's records."""
+        """"DIED", "SOLD", "LEFT" or "ON_FARM", worked out from the animal's records."""
         if self.mortality_record is not None:
             return "DIED"
         if any(record.transaction_type == "SELL" for record in self.commercial_records):
             return "SOLD"
+        if self.departure is not None:
+            return "LEFT"
         return "ON_FARM"
 
     @property
