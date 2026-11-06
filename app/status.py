@@ -56,12 +56,12 @@ def animal_counts(farm_id, today=None):
 
 def unwell(farm_id, today=None):
     """Animals with an illness or treatment recorded in the last 14 days,
-    newest first, each with its latest such record."""
+    newest first, each with its latest such record. Only disease records count"""
     today = today or date.today()
     since = today - timedelta(days=UNWELL_DAYS)
     records = (HealthRecord.query.join(HealthRecord.animal)
                .filter(Livestock.farmer_id == farm_id, still_on_farm(),
-                       HealthRecord.record_type.in_(("ILLNESS", "TREATMENT")), HealthRecord.date > since)
+                       HealthRecord.record_type.in_(("ILLNESS", "TREATMENT")), HealthRecord.disease.isnot(None), HealthRecord.date > since)
                .order_by(HealthRecord.date.desc(), HealthRecord.h_record_id.desc()).all())
     latest = {}
     for record in records:

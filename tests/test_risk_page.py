@@ -1,14 +1,13 @@
 """The farmer's Illness risk page."""
 from datetime import date, timedelta
 
-import joblib
 import pytest
 
 import ml.predict
 from app.extensions import db
 from app.models import HealthRecord
 from ml.predict import reasons
-from ml.train import build_table, train
+from ml.train import build_table, save_bundle, train
 from tests.test_pharmacy import as_farmer, as_worker, farm_with_worker
 from tests.test_records_general import add_animal
 
@@ -16,8 +15,8 @@ from tests.test_records_general import add_animal
 @pytest.fixture(scope="module")
 def model_file(tmp_path_factory):
     """A small trained model saved to a file, like python -m ml.train does."""
-    path = tmp_path_factory.mktemp("model") / "illness_model.joblib"
-    joblib.dump(train(build_table(end=date(2026, 9, 30), years=1, seed=1))[0], path)
+    path = tmp_path_factory.mktemp("model") / "illness_model.pkl"
+    save_bundle(train(build_table(end=date(2026, 9, 30), years=1, seed=1))[0], path=path)
     return path
 
 
@@ -54,7 +53,7 @@ def test_workers_cannot_open_it(client):
 
 
 def test_a_helpful_message_before_the_model_is_trained(client, tmp_path, monkeypatch):
-    monkeypatch.setattr(ml.predict, "MODEL_PATH", tmp_path / "not_there.joblib")
+    monkeypatch.setattr(ml.predict, "MODEL_PATH", tmp_path / "not_there.pkl")
     farm_with_worker(client)
     as_farmer(client)
     assert b"python -m ml.train" in client.get("/risk").data

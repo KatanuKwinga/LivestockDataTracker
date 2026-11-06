@@ -17,4 +17,4 @@ venv/
 
 ml/data/
 #The trained model
-ml/artifacts/*.joblib
+ml/artifacts/*.pkl

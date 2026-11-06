@@ -10,7 +10,7 @@ import pandas as pd
 
 from app.models import CommercialInfo, Departure, HealthRecord, HerdActivity, Livestock, MortalityRecord
 from ml.dataset import CAP_DAYS, FEATURES, SPECIES, exits, features
-from ml.train import MODEL_PATH
+from ml.train import MODEL_PATH, load_bundle
 
 # On the test rows, animals below 6% fell ill 5% of the time, 6-10% about 8%,
 # and 10% or more about 12% of the time (lesson S9).
@@ -78,7 +78,7 @@ def on_farm_today(data, today):
 def predict_farm(farm_id, today=None, model=None):
     """Every animal on the farm with its chance and risk level, riskiest first."""
     today = today or date.today()
-    model = model or joblib.load(MODEL_PATH)
+    model = model or joblib.load(MODEL_PATH)["model"]
     data = farm_data(farm_id)
     table = on_farm_today(data, today)
     if table.empty:

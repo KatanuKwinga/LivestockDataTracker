@@ -22,5 +22,9 @@ scikit-learn>=1.5.2
 openpyxl==3.1.5
 joblib>=1.4
 
+# Notebook for training the model step by step
+notebook==7.2.2
+matplotlib==3.9.2
+
 # Testing
 pytest==8.3.2 

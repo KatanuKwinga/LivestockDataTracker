@@ -7,12 +7,12 @@
   <div>
     <span class="eyebrow">Prediction{% if not missing %} &middot; {{ today.strftime("%d %b %Y") }}{% endif %}</span>
     <h1>Illness <em>risk</em></h1>
-    <p>Which animals to check first: each animal's chance of falling ill in the next 30 days, worked out from its records.</p>
+    <p>Each animal's chance of falling ill in the next 30 days, based on their records.</p>
   </div>
 </div>
 
 {% if missing %}
-  <div class="empty">The prediction model hasn't been trained yet. Run <span class="mono">python -m ml.train</span>, then open this page again.</div>
+  <div class="empty">The prediction model hasn't been trained yet.</div>
 {% elif not total %}
   <div class="empty">No cattle, goats or sheep on the farm yet.</div>
 {% else %}
@@ -44,8 +44,7 @@
 
   <p class="muted" style="margin-top:16px">
     High means about 12 in 100 such animals fall ill within a month, Low about 5 in 100. It is a guide to which
-    animals to look at first, not a diagnosis. The model learned from simulated farms based on Kwetu's records,
-    so it is only as good as the records: an illness or deworming that wasn't written down can't be counted.
+    animals to look at first, not a diagnosis.
   </p>
 {% endif %}
 {% endblock %}

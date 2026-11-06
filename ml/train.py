@@ -1,16 +1,17 @@
 """Training the illness model on simulated Kwetu-like farms and save it.
 The model learns one weight per clue, adds them up for each
 animal, and turns the total into a probability between 0 and 1."""
+import pickle
 from datetime import date, timedelta
 from pathlib import Path
 
-import joblib
+import sklearn
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from ml.dataset import FEATURES, features, labels
+from ml.dataset import FEATURES, HORIZON_DAYS, features, labels
 from ml.synthetic import simulate_farms
 
 END = date(2026, 9, 30)          # fixed, so every run builds the same farms
@@ -18,7 +19,7 @@ YEARS = 3
 WARM_UP_DAYS = 90                # skip the first months: no earlier records exist yet
 TEST_SHARE = 0.25                # the newest quarter of the snapshots is kept for testing
 LABEL = "ill_within_30_days"
-MODEL_PATH = Path(__file__).parent / "artifacts" / "illness_model.joblib"
+MODEL_PATH = Path(__file__).parent / "artifacts" / "illness_model.pkl"
 
 
 def build_table(end=END, years=YEARS, seed=42):
@@ -52,6 +53,31 @@ def train(table):
     model.fit(learn[["species"] + FEATURES], learn[LABEL])
     return model, learn, test
 
+def save_bundle(model, metrics=None, path=MODEL_PATH):
+    """Save the trained model as ONE pickle file, together with what is
+    needed to use it and explain it: the columns it expects, what it
+    predicts, how well it did, and when and how it was trained."""
+    bundle = {
+        "model": model,                              # the fitted Pipeline: call bundle["model"].predict_proba(...)
+        "columns": ["species"] + FEATURES,           # the columns it needs, in this order
+        "label": LABEL,
+        "horizon_days": HORIZON_DAYS,
+        "metrics": metrics or {},
+        "trained_on": date.today().isoformat(),
+        "training_data": f"Simulated Kwetu-like farms, {YEARS} years to {END}",
+        "sklearn_version": sklearn.__version__,      # load it with the same version
+    }
+    path.parent.mkdir(exist_ok=True)
+    with open(path, "wb") as f:                      # "wb": write bytes
+        pickle.dump(bundle, f)
+    return bundle
+
+
+def load_bundle(path=MODEL_PATH):
+    """Read the pickle back. Only ever unpickle files you made yourself:
+    loading a pickle can run code hidden inside it."""
+    with open(path, "rb") as f:
+        return pickle.load(f)
 
 if __name__ == "__main__":
     print("Simulating three farms for three years (about a minute)...")
@@ -63,6 +89,5 @@ if __name__ == "__main__":
     test = test.assign(chance=chance)
     print("\nAverage predicted chance, by what really happened (test rows):")
     print(test.groupby(LABEL)["chance"].mean().round(3).to_string())
-    MODEL_PATH.parent.mkdir(exist_ok=True)
-    joblib.dump(model, MODEL_PATH)
+    save_bundle(model)
     print(f"\nSaved the model to {MODEL_PATH}")
