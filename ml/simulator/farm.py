@@ -11,8 +11,8 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
-from ml.reference import FARM_VACCINES, SPECIES_INFO, FRAILTY_SPREAD 
-
+from ml.reference import (EL_NINO_CHANCE, EL_NINO_PERIODS, FARM_VACCINES, FRAILTY_SPREAD,
+                          SPECIES_INFO)
 
 @dataclass
 class Animal:
@@ -47,13 +47,17 @@ class Animal:
 
 class Farm:
     #Holds everything the simulation creates.
-    def __init__(self, start, end, seed=42, vaccines=FARM_VACCINES):
+    def __init__(self, start, end, seed=42, vaccines=FARM_VACCINES, environment=None):
         # One random-number generator for the whole run: the same seed
         # always gives exactly the same farm, so results can be repeated.
         self.rng = np.random.default_rng(seed)
         self.start = start
         self.end = end
         self.vaccines = tuple(vaccines)
+        # The farm's surroundings (ENVIRONMENTS in reference.py): 1.0 = average,
+        # 2.0 = twice the usual risk of the diseases it drives. None = all average.
+        self.environment = dict(environment or {})
+        self.el_nino_seasons = el_nino_seasons(start, end, seed)
         self.animals = []                        # every animal ever, alive or not
         self.tag_counts = {s: 0 for s in SPECIES_INFO}
         self.breeding = []
@@ -129,8 +133,24 @@ class Farm:
                 "description", "treatment", "dosage"]),
             "herd_activities": pd.DataFrame(self.herd_activities, columns=[
                 "date", "species", "activity", "product"]),
-            "weights": pd.DataFrame(self.weights, columns=["animal_id", "date", "weight"]),
+                        "weights": pd.DataFrame(self.weights, columns=["animal_id", "date", "weight"]),
+            # Not a table in the app: the farm's El Nino seasons, so the
+            # training rows can say which snapshots were in one.
+            "el_nino": pd.DataFrame(self.el_nino_seasons, columns=["start", "end"]),
         }
+
+
+def el_nino_seasons(start, end, seed):
+    """This farm's El Nino seasons (October to January). The real one,
+    2023-24, always; any other year by chance (EL_NINO_CHANCE). A separate
+    random generator, so adding this didn't change the rest of the farm."""
+    rng = np.random.default_rng([seed, 2023])
+    seasons = list(EL_NINO_PERIODS)
+    for year in range(start.year - 1, end.year + 1):
+        season = (date(year, 10, 1), date(year + 1, 1, 31))
+        if season not in seasons and rng.random() < EL_NINO_CHANCE:
+            seasons.append(season)
+    return sorted(seasons)
 
 
 def run(farm, steps):

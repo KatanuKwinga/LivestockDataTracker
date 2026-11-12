@@ -2,8 +2,9 @@
 from datetime import date, timedelta
 
 import pandas as pd
+import numpy as np
 
-from ml.reference import FARM_VACCINES, VACCINES
+from ml.reference import FARM_VACCINES, VACCINES, ENVIRONMENT_SPREAD, ENVIRONMENTS
 from ml.simulator.farm import Farm, run
 from ml.simulator.herd import births_step, sales_step, starting_herd
 from ml.simulator.illness import illness_step
@@ -23,12 +24,13 @@ FARM_PLANS = {
 }
 
 
-def simulate_farm(end=None, years=2, seed=42, vaccines=FARM_VACCINES):
+def simulate_farm(end=None, years=2, seed=42, vaccines=FARM_VACCINES, environment=None):
     """Simulate one farm for `years` years ending on `end` (default today).
     Returns a dict of DataFrames: livestock, breeding, mortality, commercial,
     health, herd_activities, weights."""
     end = end or date.today()
-    farm = Farm(end - timedelta(days=365 * years), end, seed=seed, vaccines=vaccines)
+    farm = Farm(end - timedelta(days=365 * years), end, seed=seed, vaccines=vaccines,
+                environment=environment)
     starting_herd(farm)
     run(farm, STEPS)
     return farm.tables()
@@ -54,6 +56,38 @@ def simulate_farms(end=None, years=2, seed=42, plans=FARM_PLANS):
             combined.setdefault(table_name, []).append(df)
     return {name: pd.concat(parts, ignore_index=True) for name, parts in combined.items()}
 
+def random_farm(seed):
+    """A made-up farm's plan and surroundings. Each of wet ground, ticks
+    and hygiene is drawn around 1.0 (average), so some farms are muddy,
+    some tick-infested, some kept very clean, and most in between."""
+    rng = np.random.default_rng(seed)
+    environment = {name: round(float(rng.lognormal(-ENVIRONMENT_SPREAD ** 2 / 2, ENVIRONMENT_SPREAD)), 2)
+                   for name in ENVIRONMENTS}
+    plan_name = rng.choice(list(FARM_PLANS))
+    return str(plan_name), FARM_PLANS[str(plan_name)], environment
+
+
+def simulate_many(farms=10, end=None, years=3, seed=100):
+    """Simulate `farms` different farms and stack their tables, like
+    simulate_farms, with a `farm` column ("farm01", "farm02"...). Each farm
+    gets its own vaccination plan and surroundings (random_farm). Returns
+    the tables and a small table describing each farm."""
+    combined, about = {}, []
+    for number in range(farms):
+        name = f"farm{number + 1:02d}"
+        plan, vaccines, environment = random_farm(seed + number)
+        tables = simulate_farm(end, years, seed + number, vaccines, environment)
+        offset = (number + 1) * 100_000
+        for table_name, df in tables.items():
+            df = df.copy()
+            for column in ("animal_id", "sire_id", "b_record_id"):
+                if column in df:
+                    df[column] = df[column] + offset
+            df.insert(0, "farm", name)
+            combined.setdefault(table_name, []).append(df)
+        about.append({"farm": name, "vaccination plan": plan, **environment})
+    tables = {name: pd.concat(parts, ignore_index=True) for name, parts in combined.items()}
+    return tables, pd.DataFrame(about).set_index("farm")
 
 if __name__ == "__main__":
     # A quick look at what the simulator produces (takes about 15 seconds).

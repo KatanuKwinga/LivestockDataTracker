@@ -58,8 +58,8 @@ def test_worker_home_asks_what_to_do_and_hides_farmer_pages(client):
     login(client, "farmer")
     add_worker(client)
     client.post("/auth/logout")
-    login(client, "worker", email="wanjiru@example.com", password="workerpass1")
-
+    login(client, "worker", username="wanjiru", password="workerpass1")
+    
     page = client.get("/dashboard").data.decode()
     assert "What would you like to do today?" in page
     assert "Add a record" in page

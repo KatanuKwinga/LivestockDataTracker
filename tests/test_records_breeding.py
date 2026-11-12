@@ -8,9 +8,10 @@ from tests.test_records_general import add_animal, farmer_logged_in
 
 
 def breeding(**changes):
-    # Every box is sent, as the browser sends the hidden ones too.
+    # Every box is sent, as the browser sends the hidden ones too. "young"
+    # (the tick boxes) is only sent when some are ticked.
     data = {"event": "MATED", "sire": "", "mated_on": "", "expected_date": "", "birth_date": "",
-            "females_born": "0", "males_born": "0", "stillborn": "0"}
+            "stillborn": "0", "notes": ""}
     data.update(changes)
     return data
 
@@ -53,7 +54,7 @@ def test_recording_a_mating_works_out_the_due_date(app, client):
     assert (record.status, record.sire_id) == ("EXPECTANT", buck)
     assert record.expected_delivery_date == date(2026, 9, 1) + timedelta(days=150)     # goat gestation
     saved = client.get(response.headers["Location"]).data
-    assert b"Expectant" in saved and b"29 Jan 2027" in saved and b"G010" in saved
+    assert b"Pregnant" in saved and b"29 Jan 2027" in saved and b"G010" in saved
 
 
 def test_the_vets_due_date_wins_over_the_worked_out_one(app, client):
@@ -87,67 +88,137 @@ def test_a_pregnant_female_cannot_be_mated_again(app, client):
 
 
 # ------------------------------------------------------------------ births
+# The young are registered under New animal, then linked to their mother:
+# either ticked on the birth form, or registered from the birth record.
 
-def test_a_birth_closes_the_pregnancy_and_registers_the_young(app, client):
+def test_a_birth_closes_the_pregnancy_and_links_the_ticked_young(app, client):
     farmer_logged_in(client)
     doe = add_animal(app, "G001", breed="Galla")
     buck = add_animal(app, "G010", gender="MALE", breed="Toggenburg")
-    client.post(f"/records/add/goat/breeding/{doe}", data=breeding(sire=str(buck), mated_on="2026-04-01"))
+    born = date.today() - timedelta(days=20)        # recent: only young under YOUNG_FOR_DAYS are offered
+    mated = born - timedelta(days=150)
+    client.post(f"/records/add/goat/breeding/{doe}", data=breeding(sire=str(buck), mated_on=mated.isoformat()))
+    kid_a = add_animal(app, "G011", date_of_birth=born)
+    kid_b = add_animal(app, "G012", gender="MALE", date_of_birth=None)          # no date yet
+    old = add_animal(app, "G002", date_of_birth=date(2020, 1, 1))              # too old to be offered
 
-    # The form now expects the birth, with the father already chosen.
+    # The form now expects the birth, with the father chosen and the young offered.
     page = client.get(f"/records/add/goat/breeding/{doe}").data
     assert b"is recorded as pregnant" in page and f'<option selected value="{buck}">'.encode() in page
+    assert b"G011" in page and b"G012" in page and b"G002" not in page
 
     response = client.post(f"/records/add/goat/breeding/{doe}",
-                           data=breeding(event="BIRTH", sire=str(buck), birth_date="2026-08-29",
-                                         females_born="1", males_born="1", stillborn="1"))
+                           data=breeding(event="BIRTH", sire=str(buck), birth_date=born.isoformat(), stillborn="1",
+                                         young=[str(kid_a), str(kid_b)], notes="Twins and one born dead"))
 
     [record] = breeding_records(app)                 # the same record, now closed
-    assert (record.status, record.actual_delivery_date, record.num_stillborn) == ("SUCCESSFUL BIRTH", date(2026, 8, 29), 1)
+    assert (record.status, record.actual_delivery_date, record.num_stillborn, record.notes) == (
+        "SUCCESSFUL BIRTH", born, 1, "Twins and one born dead")
     with app.app_context():
         young = Livestock.query.filter_by(b_record_id=record.b_record_id).order_by(Livestock.tag_number).all()
-        assert [(k.tag_number, k.gender, k.breed, k.date_of_birth) for k in young] == [
-            ("G011", "FEMALE", "Cross", date(2026, 8, 29)), ("G012", "MALE", "Cross", date(2026, 8, 29))]
+        assert [(k.tag_number, k.date_of_birth) for k in young] == [("G011", born), ("G012", born)]
+        assert db.session.get(Livestock, old).b_record_id is None
     saved = client.get(response.headers["Location"]).data
-    assert b"G011" in saved and b"G012" in saved and b"Born alive" in saved
-    kid_page = client.get(f"/herd/{young[0].animal_id}").data
+    assert b"Gave birth" in saved and b"G011" in saved and b"Register a young one" in saved
+    kid_page = client.get(f"/herd/{kid_a}").data
     assert b"Mother" in kid_page and b"G001" in kid_page and b"G010" in kid_page
 
 
-def test_a_birth_can_be_recorded_without_a_recorded_pregnancy(app, client):
+def test_a_young_one_born_on_another_day_cannot_be_linked(app, client):
+    farmer_logged_in(client)
+    doe = add_animal(app, "G001")
+    birth, kid_born = date.today() - timedelta(days=10), date.today() - timedelta(days=40)
+    kid = add_animal(app, "G011", date_of_birth=kid_born)
+    response = client.post(f"/records/add/goat/breeding/{doe}",
+                           data=breeding(event="BIRTH", birth_date=birth.isoformat(), young=[str(kid)]))
+    message = f"G011 was born on {kid_born:%d %b %Y}, not around {birth:%d %b %Y}"
+    assert message.encode() in response.data
+    assert breeding_records(app) == []
+
+
+def test_a_birth_can_be_saved_first_and_the_young_registered_from_it(app, client):
     farmer_logged_in(client)
     doe = add_animal(app, "G001", breed="Galla")
-    client.post(f"/records/add/goat/breeding/{doe}", data=breeding(event="BIRTH", birth_date="2026-10-01", females_born="2"))
+    client.post(f"/records/add/goat/breeding/{doe}", data=breeding(event="BIRTH", birth_date="2026-10-01"))
+    [record] = breeding_records(app)
+    assert record.status == "SUCCESSFUL BIRTH"
+
+    # "Register a young one": date of birth and breed are filled in...
+    url = f"/records/add/goat/general/new?birth={record.b_record_id}"
+    page = client.get(url).data
+    assert b"G001</em>&#39;s young one" in page or b"G001</em>'s young one" in page
+    assert b'value="2026-10-01"' in page and b'value="Galla"' in page
+    # ...a different date is refused...
+    bad = client.post(url, data={"tag_number": "G020", "gender": "FEMALE", "breed": "Galla",
+                                 "date_of_birth": "2026-09-01", "description": ""})
+    assert b"Its mother gave birth on 01 Oct 2026" in bad.data
+    # ...and saving links it to its mother.
+    client.post(url, data={"tag_number": "G020", "gender": "FEMALE", "breed": "Galla",
+                           "date_of_birth": "2026-10-01", "description": ""})
     with app.app_context():
-        record = BreedingRecord.query.one()
-        assert record.status == "SUCCESSFUL BIRTH" and record.num_born_alive == 2
+        assert Livestock.query.filter_by(tag_number="G020").one().b_record_id == record.b_record_id
 
 
-def test_a_birth_needs_a_date_and_live_young(app, client):
+def test_young_can_be_linked_and_unlinked_after_the_birth(app, client):
+    farmer_logged_in(client)
+    doe = add_animal(app, "G001")
+    birth = date.today() - timedelta(days=10)
+    client.post(f"/records/add/goat/breeding/{doe}", data=breeding(event="BIRTH", birth_date=birth.isoformat()))
+    [record] = breeding_records(app)
+    kid = add_animal(app, "G011", date_of_birth=birth + timedelta(days=1))
+    url = f"/records/breeding/{record.b_record_id}/young"
+
+    assert b"G011" in client.get(url).data
+    client.post(url, data={"young": [str(kid)]})
+    with app.app_context():
+        assert db.session.get(Livestock, kid).b_record_id == record.b_record_id
+    client.post(url, data={})                                 # nothing ticked: unlinked again
+    with app.app_context():
+        assert db.session.get(Livestock, kid).b_record_id is None
+
+
+def test_another_farms_birth_cannot_be_reached(app, client):
+    register_farmer(client, name="Other Farmer", email="other@example.com")
+    client.post("/auth/login/farmer", data={"email": "other@example.com", "password": "password123"})
+    their_doe = add_animal(app, "G001", email="other@example.com")
+    client.post(f"/records/add/goat/breeding/{their_doe}", data=breeding(event="BIRTH", birth_date="2026-10-01"))
+    client.post("/auth/logout")
+    [record] = breeding_records(app)
+    farmer_logged_in(client)
+    assert client.get(f"/records/breeding/{record.b_record_id}/young").status_code == 404
+    assert client.get(f"/records/add/goat/general/new?birth={record.b_record_id}").status_code == 404
+
+
+def test_a_birth_needs_a_believable_date(app, client):
     farmer_logged_in(client)
     doe = add_animal(app, "G001", date_of_birth=date(2024, 1, 1))
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
     cases = [
-        (breeding(event="BIRTH", females_born="1"), b"Enter the date"),
-        (breeding(event="BIRTH", birth_date="2026-10-01"), b"No live young?"),
-        (breeding(event="BIRTH", birth_date=tomorrow, females_born="1"), b"can&#39;t be in the future"),
-        (breeding(event="BIRTH", birth_date="2023-06-01", females_born="1"), b"was born on 01 Jan 2024"),
-        (breeding(event="BIRTH", birth_date="2026-10-01", females_born="-1"), b"Number must be between 0 and 30"),
+        (breeding(event="BIRTH"), b"Enter the date"),
+        (breeding(event="BIRTH", birth_date=tomorrow), b"can&#39;t be in the future"),
+        (breeding(event="BIRTH", birth_date="2023-06-01"), b"was born on 01 Jan 2024"),
+        (breeding(event="NO_BIRTH", birth_date="2026-10-01", stillborn="-1"), b"Number must be between 0 and 30"),
     ]
     for data, message in cases:
         assert message in client.post(f"/records/add/goat/breeding/{doe}", data=data).data
     assert breeding_records(app) == []
 
 
-def test_a_lost_pregnancy_registers_no_young(app, client):
+def test_a_lost_pregnancy_or_stillbirth_has_a_date_and_a_note(app, client):
     farmer_logged_in(client)
     doe = add_animal(app, "G001")
     client.post(f"/records/add/goat/breeding/{doe}", data=breeding())
-    client.post(f"/records/add/goat/breeding/{doe}", data=breeding(event="NO_BIRTH", birth_date="2026-10-01", stillborn="1"))
+    response = client.post(f"/records/add/goat/breeding/{doe}", data=breeding(
+        event="NO_BIRTH", birth_date="2026-10-01", stillborn="1", notes="Born dead after a long labour"))
     with app.app_context():
         record = BreedingRecord.query.one()
-        assert (record.status, record.num_stillborn, record.num_born_alive) == ("NO BIRTH", 1, 0)
+        assert (record.status, record.num_stillborn, record.num_born_alive, record.notes) == (
+            "NO BIRTH", 1, 0, "Born dead after a long labour")
         assert Livestock.query.count() == 1
+    saved = client.get(response.headers["Location"]).data
+    assert b"Lost the pregnancy / born dead" in saved and b"Born dead after a long labour" in saved
+
+
 
 
 # ------------------------------------------------------------- production

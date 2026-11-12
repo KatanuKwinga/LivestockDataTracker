@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from ml.reference import CONDITIONS, ILLNESS_RECOVERY_DAYS, SPECIES_INFO
-from ml.simulator.farm import Animal, Farm, run
+from ml.simulator.farm import Animal, Farm, el_nino_seasons, run
 from ml.simulator.herd import births_step, sales_step, starting_herd
 from ml.simulator.illness import (
     can_get, chance_per_day, daily_risk, herd_multiplier, illness_step,
@@ -26,6 +26,10 @@ ECF = condition("CATTLE", "East Coast Fever")
 MASTITIS = condition("CATTLE", "Mastitis")
 SCOURS = condition("CATTLE", "Calf scours")
 FMD = condition("CATTLE", "Foot and Mouth Disease")
+BLACKQUARTER = condition("CATTLE", "Blackquarter")
+LAMINITIS = condition("CATTLE", "Laminitis")
+FOOT_ROT = condition("CATTLE", "Foot rot")
+WORMS = condition("CATTLE", "Gastrointestinal worms")
 
 
 def cow(**changes):
@@ -52,9 +56,9 @@ def health(farm):
 
 # Rules
 def test_chance_is_spread_over_the_window_the_animal_can_get_it():
-    # "common" = 20%: over a year for ECF, over the first 42 days for calf scours.
+    # "common" = 20%: over a year for ECF, over the first 30 days for calf scours.
     assert 1 - (1 - chance_per_day(ECF)) ** 365 == pytest.approx(0.20)
-    assert 1 - (1 - chance_per_day(SCOURS)) ** 42 == pytest.approx(0.20)
+    assert 1 - (1 - chance_per_day(SCOURS)) ** 30 == pytest.approx(0.20)
 
 
 def test_who_can_get_what():
@@ -142,3 +146,50 @@ def test_rain_triggered_illness_is_more_common_in_the_long_rains(health):
     per_month_rains = months.isin([3, 4, 5]).sum() / 3
     per_month_dry = months.isin([1, 2, 6, 7, 8, 9]).sum() / 6
     assert per_month_rains > per_month_dry
+
+def test_blackquarter_only_in_young_stock():
+    day = date(2026, 6, 1)
+    assert not can_get(cow(date_of_birth=day - timedelta(days=100)), BLACKQUARTER, day)   # a calf
+    assert can_get(cow(date_of_birth=day - timedelta(days=400)), BLACKQUARTER, day)
+    assert not can_get(cow(date_of_birth=day - timedelta(days=800)), BLACKQUARTER, day)   # grown
+
+
+def test_laminitis_only_in_the_two_months_after_calving():
+    day = date(2026, 6, 1)
+    assert can_get(cow(last_birth=day - timedelta(days=30)), LAMINITIS, day)
+    assert not can_get(cow(last_birth=day - timedelta(days=90)), LAMINITIS, day)
+    assert not can_get(cow(), LAMINITIS, day)                    # never calved
+
+
+def test_mastitis_risk_is_higher_in_early_lactation():
+    day = date(2026, 6, 1)
+    fresh = daily_risk(cow(last_birth=day - timedelta(days=20)), MASTITIS, day, 1.0)
+    later = daily_risk(cow(last_birth=day - timedelta(days=200)), MASTITIS, day, 1.0)
+    assert fresh == pytest.approx(later * 3)
+
+
+def test_worms_hit_the_young_harder_and_peak_at_the_start_of_the_rains():
+    day = date(2026, 6, 1)
+    calf = daily_risk(cow(date_of_birth=day - timedelta(days=60)), WORMS, day, 1.0)
+    assert calf == pytest.approx(daily_risk(cow(), WORMS, day, 1.0) * 2)
+    farm = Farm(START, END)
+    farm.last_deworm["CATTLE"] = date(2026, 3, 1)                  # dewormed on time
+    assert herd_multiplier(farm, "CATTLE", WORMS, date(2026, 3, 10)) == pytest.approx(1.5 * 1.5)
+    assert herd_multiplier(farm, "CATTLE", WORMS, date(2026, 4, 10)) == pytest.approx(1.5)
+
+
+def test_el_nino_and_wet_ground_raise_foot_rot():
+    farm = Farm(START, END, environment={"wet": 2.0})
+    farm.el_nino_seasons = [(date(2023, 10, 1), date(2024, 1, 31))]    # only the real one
+    normal_year = herd_multiplier(farm, "CATTLE", FOOT_ROT, date(2024, 11, 15))
+    el_nino = herd_multiplier(farm, "CATTLE", FOOT_ROT, date(2023, 11, 15))
+    assert normal_year == pytest.approx(2.0 * 1.3)               # wet farm, short rains
+    assert el_nino == pytest.approx(normal_year * 2)
+
+def test_each_farm_has_the_real_el_nino_and_others_by_chance():
+    seasons = [el_nino_seasons(date(2020, 1, 1), date(2026, 12, 31), seed) for seed in range(200)]
+    assert all((date(2023, 10, 1), date(2024, 1, 31)) in s for s in seasons)
+    others = [len(s) - 1 for s in seasons]
+    assert 0.15 < sum(others) / (200 * 7) < 0.35                 # about one year in four
+    assert all(start.month == 10 and end.month == 1 for s in seasons for start, end in s)
+    assert el_nino_seasons(date(2020, 1, 1), date(2026, 12, 31), 5) == seasons[5]   # repeatable

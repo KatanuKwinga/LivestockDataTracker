@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from flask import Blueprint, abort, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import func, select
 
@@ -8,6 +8,7 @@ from app import status
 from app.decorators import farmer_required
 from app.extensions import db
 from app.farm import current_farm_id, still_on_farm
+from app.forms import ElNinoForm
 from app.models import Farmer, Livestock, Worker
 from app.routes.records import SLUG_FOR
 
@@ -88,26 +89,31 @@ def status_detail(key):
     return render_template(f"status/{key}.html", title=title, s=work_out(current_farm_id()),
                            unwell_days=status.UNWELL_DAYS, today=date.today(), slugs=SLUG_FOR)
 
-RISK_LEVELS = ("High", "Medium", "Low")
-
-
-@main_bp.route("/risk")
+@main_bp.route("/alerts")
 @farmer_required
-def illness_risk():
-    """Every animal on the farm with its chance of falling ill in the next 30
-    days, as Low, Medium or High (the model from ml/), riskiest first."""
+def disease_alerts():
+    """Which diseases each group of animals is likely to get in the next 30
+    days (the model in ml/), with the reasons and what to do, plus the
+    watch list and the El Nino switch."""
     # Imported here, not at the top: pandas and scikit-learn are only loaded
     # when someone opens this page, so the rest of the app starts quickly.
-    from ml.predict import predict_farm
+    from ml.alerts import farm_alerts
 
-    level = request.args.get("level", "High")
-    if level not in RISK_LEVELS + ("All",):
-        level = "High"
+    farmer = current_user
     try:
-        table = predict_farm(current_farm_id())
+        alerts = farm_alerts(current_farm_id(), el_nino=farmer.el_nino_forecast)
     except FileNotFoundError:
-        return render_template("status/risk.html", missing=True)
-    counts = {name: int((table["risk"] == name).sum()) if len(table) else 0 for name in RISK_LEVELS}
-    shown = table if level == "All" or not len(table) else table[table["risk"] == level]
-    return render_template("status/risk.html", missing=False, rows=shown.to_dict("records"),
-                           counts=counts, level=level, total=len(table), today=date.today())
+        return render_template("status/alerts.html", missing=True)
+    return render_template("status/alerts.html", missing=False, a=alerts, today=date.today(),
+                           el_nino=farmer.el_nino_forecast, form=ElNinoForm())
+
+
+@main_bp.route("/alerts/el-nino", methods=["POST"])
+@farmer_required
+def switch_el_nino():
+    """Turn the farm's El Nino switch on or off."""
+    if ElNinoForm().validate_on_submit():
+        current_user.el_nino_forecast = not current_user.el_nino_forecast
+        db.session.commit()
+        flash("El Niño forecast turned " + ("on." if current_user.el_nino_forecast else "off."), "success")
+    return redirect(url_for("main.disease_alerts"))

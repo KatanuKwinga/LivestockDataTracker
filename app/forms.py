@@ -103,6 +103,11 @@ class ResetPasswordForm(FlaskForm):
     )
     submit = SubmitField("Save new password")
 
+class ElNinoForm(FlaskForm):
+    """The El Nino switch on the Disease alerts page: one button that turns
+    it on or off. A form, so the change is a POST with a CSRF token."""
+    submit = SubmitField("Change")
+    
 class ImportFileForm(FlaskForm):
     """Upload box on the import page"""
     file = FileField("CSV file", validators=[FileRequired(message="Choose a file to upload."),

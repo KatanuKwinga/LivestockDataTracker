@@ -1,6 +1,7 @@
-#he disease reference table, written as Python.
+#The disease reference table, written as Python.
 
 from dataclasses import dataclass
+from datetime import date
 
 # The species
 
@@ -16,12 +17,12 @@ SPECIES_INFO = {
                 "breeds": ("Kienyeji", "Kuroiler", "Kenbro")},
 }
 
-# Cnditions
+# Conditions
 
 # Groups:
 #   A = vaccine-preventable    B = everyday, treatable
 #   M = mortality only (weak newborns)    X = injuries
-# A and B are what the model predicts; M and X are recorded but never count as a "new illness".
+# A and B are recorded as illnesses; M and X never count as one.
 GROUPS = ("A", "B", "M", "X")
 RANKS = ("common", "occasional", "rare")
 
@@ -29,11 +30,26 @@ RANKS = ("common", "occasional", "rare")
 # simulator raises that condition's risk on a given day.
 TRIGGERS = (
     "rains",            # long or short rains
+    "rains_onset",      # the first month of each rainy season (worms hatch in warm, wet weather)
+    "el_nino",          # an El Nino season: much heavier rains than usual
     "spray_lapse",      # the herd missed its tick spraying
     "deworm_overdue",   # more than 90 days since deworming
     "vaccine_overdue",  # the animal's vaccine for this disease has run out
     "contagious",       # each recent case in the herd raises everyone's risk
 )
+
+# Things about a farm's surroundings that stay the same from year to year,
+# so a farm that had many cases of a disease last year tends to have them
+# again. Each simulated farm gets its own level of each (1.0 = average).
+ENVIRONMENTS = (
+    "wet",       # poorly drained, muddy ground: foot rot, worms, liver fluke
+    "ticks",     # tick-infested grazing: East Coast Fever, heartwater, dermatophilosis
+    "hygiene",   # dirty pens and bedding: scours, coccidiosis, mastitis
+)
+
+# Where the facts come from (cited in the report and shown with each alert).
+UON = "UoN Faculty of Veterinary Medicine lecture notes"
+MERCK = "Merck Veterinary Manual"
 
 
 @dataclass(frozen=True)
@@ -49,121 +65,248 @@ class Condition:
     fever: bool = False              # does the sick animal run a temperature?
     triggers: tuple = ()             # words from TRIGGERS
     sex: str | None = None           # "FEMALE" if only females get it
+    min_age_days: int | None = None  # only animals at least this old get it
     max_age_days: int | None = None  # only animals younger than this get it
-    after_birth: bool = False        # only within 3 days of giving birth
+    after_birth: bool = False        # only in the days after giving birth...
+    after_birth_days: int = 3        # ...this many of them
+    early_lactation_multiplier: float = 1.0   # extra risk in the 60 days after giving birth
+    young_multiplier: float = 1.0    # extra risk for animals under 6 months
+    environment: str | None = None   # the farm surroundings (ENVIRONMENTS) that raise it
     vaccine: str | None = None       # the vaccine that prevents it (Group A)
     resistant_breeds: tuple = ()     # breeds that get it less often
     death_chance: float = 0.0        # chance a treated case still dies
+    watch_only: bool = False         # rare outbreak disease: alerts mention it, the model doesn't predict it
+    advice: str = ""                 # what the farmer should do, shown in the alerts
+    source: str = ""                 # where the facts come from
 
 
 # Shared Group A diseases, defined once and reused by each species that
-# gets them (same facts for cattle, goats and sheep).
+# gets them (same facts for cattle, goats and sheep). They are rare,
+# outbreak diseases, so the model leaves them to the alerts' watch list.
 FMD = Condition("Foot and Mouth Disease", "A", "rare",
                 "Supportive care + Oxytetracycline LA for secondary infection",
                 fever=True, triggers=("contagious", "vaccine_overdue"),
-                vaccine="FMD vaccine", death_chance=0.05)
+                vaccine="FMD vaccine", death_chance=0.05, watch_only=True,
+                advice="Keep FMD vaccination every 6 months; report suspected cases to the vet.",
+                source=MERCK)
 RVF = Condition("Rift Valley Fever", "A", "rare", "Supportive care (no treatment)",
-                fever=True, triggers=("rains", "vaccine_overdue"),
-                vaccine="RVF vaccine", death_chance=0.05)
+                fever=True, triggers=("rains", "el_nino", "vaccine_overdue"),
+                vaccine="RVF vaccine", death_chance=0.05, watch_only=True,
+                advice="In an El Nino year, vaccinate against RVF a month before the rains.",
+                source=f"{MERCK}; vet advice on El Nino")
 PPR = Condition("PPR", "A", "rare", "Supportive care (no specific treatment)",
                 fever=True, triggers=("contagious", "vaccine_overdue"),
-                vaccine="PPR vaccine", death_chance=0.30)
+                vaccine="PPR vaccine", death_chance=0.30, watch_only=True,
+                advice="Vaccinate goats and sheep; isolate new animals for 2-3 weeks.",
+                source=f"{UON}: Food Animal Medicine II")
 POX = Condition("Sheep and goat pox", "A", "rare", "Supportive care",
                 fever=True, triggers=("contagious", "vaccine_overdue"),
-                vaccine="Sheep and goat pox vaccine", death_chance=0.05)
+                vaccine="Sheep and goat pox vaccine", death_chance=0.05, watch_only=True,
+                advice="Vaccinate yearly; isolate animals with skin nodules.",
+                source=f"{UON}: Food Animal Medicine II")
+# Orf: kids and lambs are more susceptible than adults and it is worse in goats.
 ORF = Condition("Orf", "A", "occasional", "Supportive care (wear gloves)",
-                triggers=("contagious", "vaccine_overdue"), vaccine="Orf vaccine")
+                triggers=("contagious", "vaccine_overdue"), vaccine="Orf vaccine",
+                young_multiplier=3.0,
+                advice="Check kids' and lambs' lips for scabs; isolate cases and wear gloves (it spreads to people).",
+                source=f"{UON}: Food Animal Medicine II (contagious ecthyma)")
+# Gastrointestinal worms: eggs need warmth and humidity to hatch, the young
+# suffer most, and strategic deworming at the start of the rains prevents a
+# build-up on pasture.
+WORMS_ADVICE = ("Deworm at the start of the rains; watch the young for pale gums, "
+                "bottle jaw, diarrhoea and weight loss.")
+WORMS_SOURCE = f"{UON}: Gastrointestinal parasitism, fascioliasis and Johne's disease"
+FOOT_ROT_ADVICE = ("Keep pens and paths drained and free of stones; use a footbath; "
+                   "isolate and treat lame animals early.")
+FOOT_ROT_SOURCE = f"{UON}: Foot rot in cattle; vet advice on El Nino"
+COCCI_ADVICE = ("Keep pens dry and clean and feed off the ground; watch the young for "
+                "bloody, smelly diarrhoea.")
+COCCI_SOURCE = f"{UON}: Coccidiosis (Gitau, 2025)"
+FLUKE = dict(triggers=("rains",), environment="wet",
+             advice="Keep animals off swampy, poorly drained grazing; treat with a flukicide.",
+             source=WORMS_SOURCE)
 
 CONDITIONS = {
     "CATTLE": (
+        # Brown ear tick; warm, wet zones; breed and age are risk factors.
         Condition("East Coast Fever", "B", "common",
                   "Buparvaquone (Bupalex) + Oxytetracycline 10% LA + Dexa",
-                  fever=True, triggers=("rains", "spray_lapse"),
-                  resistant_breeds=("Boran", "Sahiwal"), death_chance=0.10),
+                  fever=True, triggers=("rains", "spray_lapse"), environment="ticks",
+                  resistant_breeds=("Boran", "Sahiwal"), death_chance=0.10,
+                  advice="Spray or dip every week (twice a week in the rains); check ears for "
+                         "brown ear ticks; watch for fever and swollen lymph nodes.",
+                  source=f"{UON}: East Coast Fever (Gitau, 2022)"),
+        # Newborns (12 hours to 14 days), poor hygiene, no colostrum.
         Condition("Calf scours", "B", "common", "Oral rehydration + S-Dime",
-                  fever=True, triggers=("contagious",), max_age_days=42,
-                  death_chance=0.05),
+                  fever=True, triggers=("contagious",), max_age_days=30,
+                  environment="hygiene", death_chance=0.05,
+                  advice="Make sure every calf suckles colostrum within 12 hours; keep calf pens clean and dry.",
+                  source=f"{UON}: Colibacillosis (Gitau, 2025)"),
+        Condition("Coccidiosis", "B", "occasional", "Amprolium",
+                  triggers=("rains", "contagious"), max_age_days=365,
+                  environment="hygiene", advice=COCCI_ADVICE, source=COCCI_SOURCE),
         Condition("Gastrointestinal worms", "B", "common", "Nilzan drench",
-                  triggers=("rains", "deworm_overdue")),
-        Condition("Mastitis", "B", "common", "Penstrep", fever=True, sex="FEMALE"),
+                  triggers=("rains", "rains_onset", "deworm_overdue"),
+                  young_multiplier=2.0, environment="wet",
+                  advice=WORMS_ADVICE, source=WORMS_SOURCE),
+        Condition("Liver fluke", "B", "occasional", "Flukicide (e.g. triclabendazole)", **FLUKE),
+        # Most new infections early in lactation; environmental mastitis
+        # rises in wet, muddy conditions.
+        Condition("Mastitis", "B", "common", "Penstrep", fever=True, sex="FEMALE",
+                  triggers=("rains",), early_lactation_multiplier=3.0, environment="hygiene",
+                  min_age_days=730,
+                  advice="Milk with clean, dry hands and udders; strip-test cows in the first "
+                         "two months after calving; keep bedding dry.",
+                  source=f"{MERCK}: Mastitis in large animals"),
         Condition("Foot rot", "B", "occasional", "Hoof treatment + Oxytetracycline",
-                  triggers=("rains",)),
+                  triggers=("rains", "el_nino"), environment="wet",
+                  advice=FOOT_ROT_ADVICE, source=FOOT_ROT_SOURCE),
+        # Cows around calving; El Nino years (vet advice).
+        Condition("Laminitis", "B", "occasional", "Hoof trimming + NSAIDs + diet change",
+                  sex="FEMALE", after_birth=True, after_birth_days=60, triggers=("el_nino",),
+                  advice="Change cows' diet slowly around calving (no sudden grain); trim hooves; "
+                         "avoid hard, rough floors.",
+                  source=f"{UON}: Laminitis (founder) in cattle; vet advice on El Nino"),
+        # Cattle 6 months to 2 years in good condition, in the wet season.
+        Condition("Blackquarter", "A", "occasional", "Penicillin (early) + vet check",
+                  fever=True, triggers=("rains", "vaccine_overdue"),
+                  min_age_days=180, max_age_days=730, vaccine="Blackquarter vaccine",
+                  death_chance=0.50,
+                  advice="Vaccinate young stock (6 months to 2 years) twice a year, before the rains.",
+                  source=f"{UON}: Blackquarter"),
+        # Highest in wet weather, spread by biting flies; heavy in El Nino years.
+        Condition("Lumpy skin disease", "A", "occasional", "Supportive care",
+                  fever=True, triggers=("rains", "el_nino", "vaccine_overdue"),
+                  vaccine="Lumpy skin vaccine", death_chance=0.05,
+                  advice="Vaccinate every year, a month before the rains in an El Nino year; "
+                         "control biting flies.",
+                  source=f"{UON}: Lumpy skin disease; vet advice on El Nino"),
         Condition("Retained afterbirth", "B", "occasional", "Antibiotics + vet check",
                   fever=True, sex="FEMALE", after_birth=True),
         Condition("Milk fever", "B", "rare", "Calcium injection by vet",
                   sex="FEMALE", after_birth=True, death_chance=0.05),
         Condition("Bloat", "B", "rare", "Emergency vet treatment", death_chance=0.05),
         FMD,
-        Condition("Lumpy skin disease", "A", "rare", "Supportive care",
-                  fever=True, triggers=("rains", "vaccine_overdue"),
-                  vaccine="Lumpy skin vaccine", death_chance=0.05),
         Condition("CBPP", "A", "rare", "Vet treatment",
                   fever=True, triggers=("contagious", "vaccine_overdue"),
-                  vaccine="CBPP vaccine", death_chance=0.05),
+                  vaccine="CBPP vaccine", death_chance=0.05, watch_only=True,
+                  advice="Vaccinate yearly; report coughing cattle to the vet.", source=MERCK),
         RVF,
         Condition("Injury", "X", "occasional", "Wound care", death_chance=0.02),
         Condition("Weak at birth / starvation", "M", "occasional", "Warmth + colostrum"),
     ),
     "GOAT": (
         Condition("Pneumonia", "B", "common", "Oxytetracycline 10% LA",
-                  fever=True, triggers=("rains", "contagious"), death_chance=0.05),
+                  fever=True, triggers=("rains", "contagious"), death_chance=0.05,
+                  advice="House goats dry and draught-free in the rains; isolate coughing animals.",
+                  source=f"{MERCK}: Respiratory diseases of sheep and goats"),
         Condition("Lungworm", "B", "occasional", "Dewormer",
-                  triggers=("deworm_overdue",)),
+                  triggers=("deworm_overdue",), advice=WORMS_ADVICE, source=WORMS_SOURCE),
         Condition("Gastrointestinal worms", "B", "common", "Nilzan drench",
-                  triggers=("rains", "deworm_overdue")),
+                  triggers=("rains", "rains_onset", "deworm_overdue"),
+                  young_multiplier=2.0, environment="wet",
+                  advice=WORMS_ADVICE, source=WORMS_SOURCE),
+        Condition("Coccidiosis", "B", "occasional", "Amprolium",
+                  triggers=("rains", "contagious"), max_age_days=180,
+                  environment="hygiene", advice=COCCI_ADVICE, source=COCCI_SOURCE),
         Condition("Vulval infection", "B", "occasional",
                   "Magadi salt wash + Methoxicash",
                   triggers=("contagious",), sex="FEMALE"),
         Condition("Diarrhoea", "B", "occasional", "Fluids + S-Dime",
-                  triggers=("contagious",), max_age_days=180, death_chance=0.03),
-        Condition("Mastitis", "B", "occasional", "Antibiotics", fever=True, sex="FEMALE"),
+                  triggers=("contagious",), max_age_days=180, environment="hygiene",
+                  death_chance=0.03,
+                  advice="Make sure kids get colostrum early; keep pens clean and dry.",
+                  source=f"{UON}: Colibacillosis (Gitau, 2025)"),
+        Condition("Mastitis", "B", "occasional", "Antibiotics", fever=True, sex="FEMALE",
+                  early_lactation_multiplier=3.0, environment="hygiene", min_age_days=365,
+                  advice="Check does' udders for heat and swelling in the first two months after kidding.",
+                  source=f"{MERCK}: Mastitis in large animals"),
         Condition("Mange", "B", "occasional", "Acaricide", triggers=("contagious",)),
-        Condition("Foot rot", "B", "occasional", "Hoof treatment", triggers=("rains",)),
+        # Prolonged wetting of the skin (rain) and ticks.
+        Condition("Dermatophilosis", "B", "occasional", "Oxytetracycline LA + dry housing",
+                  triggers=("rains", "contagious"), environment="ticks",
+                  advice="Give goats dry shelter in the rains and keep up tick control; "
+                         "isolate goats with crusty, matted skin.",
+                  source=f"{MERCK}: Dermatophilosis; vet advice"),
+        Condition("Foot rot", "B", "occasional", "Hoof treatment",
+                  triggers=("rains", "el_nino"), environment="wet",
+                  advice=FOOT_ROT_ADVICE, source=FOOT_ROT_SOURCE),
         Condition("Retained afterbirth", "B", "rare", "S-Dime + vet check",
                   fever=True, sex="FEMALE", after_birth=True),
         Condition("Bloat", "B", "rare", "Emergency vet treatment", death_chance=0.05),
         Condition("CCPP", "A", "rare", "Vet treatment",
                   fever=True, triggers=("contagious", "vaccine_overdue"),
-                  vaccine="CCPP vaccine", death_chance=0.05),
+                  vaccine="CCPP vaccine", death_chance=0.05, watch_only=True,
+                  advice="Keep CCPP vaccination every 6 months; isolate coughing goats.", source=MERCK),
         PPR, POX, ORF, FMD, RVF,
         Condition("Injury", "X", "occasional", "Wound care", death_chance=0.02),
         Condition("Weak at birth / starvation", "M", "common", "Warmth + colostrum"),
     ),
     "SHEEP": (
         Condition("Pneumonia", "B", "common", "Oxytetracycline 10% LA + Histacine",
-                  fever=True, triggers=("rains", "contagious"), death_chance=0.05),
+                  fever=True, triggers=("rains", "contagious"), death_chance=0.05,
+                  advice="House sheep dry and draught-free in the rains; isolate coughing animals.",
+                  source=f"{MERCK}: Respiratory diseases of sheep and goats"),
         Condition("Lungworm", "B", "occasional", "Dewormer",
-                  triggers=("deworm_overdue",)),
+                  triggers=("deworm_overdue",), advice=WORMS_ADVICE, source=WORMS_SOURCE),
+        # Red Maasai sheep resist worms (lecture notes).
         Condition("Gastrointestinal worms", "B", "common", "Dewormer",
-                  triggers=("rains", "deworm_overdue")),
-        Condition("Foot rot", "B", "occasional", "Hoof treatment", triggers=("rains",)),
+                  triggers=("rains", "rains_onset", "deworm_overdue"),
+                  young_multiplier=2.0, environment="wet", resistant_breeds=("Red Maasai",),
+                  advice=WORMS_ADVICE, source=WORMS_SOURCE),
+        Condition("Liver fluke", "B", "occasional", "Flukicide (e.g. triclabendazole)", **FLUKE),
+        Condition("Coccidiosis", "B", "occasional", "Amprolium",
+                  triggers=("rains", "contagious"), max_age_days=180,
+                  environment="hygiene", advice=COCCI_ADVICE, source=COCCI_SOURCE),
+        Condition("Foot rot", "B", "occasional", "Hoof treatment",
+                  triggers=("rains", "el_nino"), environment="wet",
+                  advice=FOOT_ROT_ADVICE, source=FOOT_ROT_SOURCE),
         Condition("Mange", "B", "occasional", "Acaricide", triggers=("contagious",)),
         Condition("Diarrhoea", "B", "occasional", "Fluids",
-                  triggers=("contagious",), max_age_days=180, death_chance=0.03),
+                  triggers=("contagious",), max_age_days=180, environment="hygiene",
+                  death_chance=0.03,
+                  advice="Make sure lambs get colostrum early; keep pens clean and dry.",
+                  source=f"{UON}: Colibacillosis (Gitau, 2025)"),
         Condition("Flystrike", "B", "occasional", "Remove maggots + wound care",
-                  triggers=("rains",)),
+                  triggers=("rains",),
+                  advice="Check dirty back ends and wounds daily in warm, wet weather; dag dirty wool.",
+                  source=f"{MERCK}: Flystrike in sheep"),
         Condition("Leg paralysis (suspected heartwater)", "B", "rare",
                   "Oxytetracycline", fever=True, triggers=("spray_lapse",),
-                  death_chance=0.50),
+                  environment="ticks", death_chance=0.50),
         Condition("Retained afterbirth", "B", "rare", "Antibiotics + vet check",
                   fever=True, sex="FEMALE", after_birth=True),
         Condition("Bloat", "B", "rare", "Emergency vet treatment", death_chance=0.05),
-        Condition("Bluetongue", "A", "rare", "Supportive care",
+        # Spread by Culicoides midges, so seasonal (rains).
+        Condition("Bluetongue", "A", "occasional", "Supportive care",
                   fever=True, triggers=("rains", "vaccine_overdue"),
-                  vaccine="Bluetongue vaccine", death_chance=0.05),
+                  vaccine="Bluetongue vaccine", death_chance=0.05,
+                  advice="Vaccinate sheep before the rains; house them at dusk and dawn when midges bite.",
+                  source=f"{UON}: Food Animal Medicine II"),
         PPR, POX, ORF, FMD, RVF,
         Condition("Injury", "X", "occasional", "Wound care", death_chance=0.02),
         Condition("Weak at birth / starvation", "M", "common", "Warmth + colostrum"),
     ),
     "CHICKEN": (
+        # Wet litter in the rains.
         Condition("Coccidiosis", "B", "common", "Amprolium",
-                  triggers=("rains", "contagious"), death_chance=0.05),
+                  triggers=("rains", "contagious"), environment="hygiene", death_chance=0.05,
+                  advice="Keep litter dry (fix leaking roofs and drinkers); add a coccidiostat "
+                         "to water if birds have bloody droppings.",
+                  source=f"{UON}: Parasitic diseases of poultry"),
         Condition("Bacterial respiratory disease", "B", "common", "Antibiotics",
-                  fever=True, triggers=("contagious",), death_chance=0.05),
+                  fever=True, triggers=("rains", "contagious"), death_chance=0.05,
+                  advice="Keep the house dry and well aired but draught-free; separate sneezing birds.",
+                  source=f"{MERCK}: Mycoplasmosis in poultry"),
         Condition("Gastrointestinal worms", "B", "occasional", "Poultry dewormer",
-                  triggers=("deworm_overdue",)),
+                  triggers=("deworm_overdue",),
+                  advice="Deworm free-range birds every 3 months.",
+                  source=f"{UON}: Parasitic diseases of poultry"),
+        # Depluming mites worse in warm, wet weather.
         Condition("External parasites", "B", "occasional", "Poultry parasite treatment",
-                  triggers=("contagious",)),
+                  triggers=("rains", "contagious"),
+                  advice="Check under wings and around the vent for mites and lice; clean perches and nests.",
+                  source=f"{UON}: Parasitic diseases of poultry"),
         Condition("Bacterial enteritis", "B", "occasional", "Fluids + medication",
                   death_chance=0.03),
         Condition("Footpad dermatitis", "B", "occasional", "Dry litter + treatment",
@@ -172,18 +315,25 @@ CONDITIONS = {
                   death_chance=0.05),
         Condition("Newcastle disease", "A", "occasional", "Supportive care (no treatment)",
                   fever=True, triggers=("contagious", "vaccine_overdue"),
-                  vaccine="Newcastle vaccine", death_chance=0.30),
+                  vaccine="Newcastle vaccine", death_chance=0.30,
+                  advice="Vaccinate against Newcastle; keep visitors, other birds and shared "
+                         "egg trays away from the flock.",
+                  source=f"{UON}: Viral diseases of poultry (Gitao)"),
+        # Spread by mosquitoes, so more in the rains.
         Condition("Fowl pox", "A", "occasional", "Supportive care",
-                  triggers=("contagious", "vaccine_overdue"),
-                  vaccine="Fowl pox vaccine", death_chance=0.05),
+                  triggers=("rains", "contagious", "vaccine_overdue"),
+                  vaccine="Fowl pox vaccine", death_chance=0.05,
+                  advice="Vaccinate chicks; control mosquitoes around the house in the rains.",
+                  source=f"{MERCK}: Fowlpox"),
         Condition("Fowl typhoid", "A", "rare", "Supportive care",
                   fever=True, triggers=("vaccine_overdue",),
-                  vaccine="Fowl typhoid vaccine", death_chance=0.30),
+                  vaccine="Fowl typhoid vaccine", death_chance=0.30, watch_only=True,
+                  advice="Vaccinate growing birds; buy chicks from clean hatcheries.",
+                  source=f"{UON}: Bacterial diseases of poultry"),
         Condition("Wounds and pecking", "X", "occasional", "Separate bird + wound care",
                   death_chance=0.02),
     ),
 }
-
 # Vvaccines
 
 # From the KEVEVAPI leaflets. first_dose_days = youngest age for the first
@@ -202,6 +352,8 @@ VACCINES = {
     "Fowl pox vaccine": {"species": ("CHICKEN",), "first_dose_days": 28, "repeat_days": None, "doses": 1},
     # The leaflet says "later growing period" without an age: 8 weeks is an assumption.
     "Fowl typhoid vaccine": {"species": ("CHICKEN",), "first_dose_days": 56, "repeat_days": None, "doses": 1},
+    # Twice a year in endemic areas (UoN notes: Blackquarter); from 6 months old.
+    "Blackquarter vaccine": {"species": ("CATTLE",), "first_dose_days": 180, "repeat_days": 182, "doses": None},
 }
 
 # Kwetu's vaccination plan (confirmed with the farm): the simulator's
@@ -212,9 +364,21 @@ FARM_VACCINES = ("CCPP vaccine", "FMD vaccine", "Lumpy skin vaccine")
 DEWORM_EVERY_DAYS = 90
 SPRAYS_PER_WEEK = {"CATTLE": 2, "GOAT": 1, "SHEEP": 1}   # chickens are not sprayed
 
-# Kenya's rains: long rains Mar-May, short rains Oct-Dec.
+# Kenya's rains: long rains Mar-May, short rains Oct-Dec. Kwetu is near
+# Thika (on the Murang'a-Kiambu border), which has both seasons.
 LONG_RAINS = (3, 4, 5)
 SHORT_RAINS = (10, 11, 12)
+
+# El Nino brings heavy short rains to Kenya, October to January. The last
+# one was Oct 2023 - Jan 2024 (Kenya Meteorological Department): the real
+# history, used for the demo farm and Kwetu's records.
+EL_NINO_MONTHS = (10, 11, 12, 1)
+EL_NINO_PERIODS = ((date(2023, 10, 1), date(2024, 1, 31)),)
+# Simulated farms also get El Nino in other years, by chance, so the model
+# learns what El Nino does rather than what happened in late 2023 (assumption:
+# about one year in four). In the app, the farmer's El Nino switch says
+# "El Nino is forecast", and it counts only in EL_NINO_MONTHS.
+EL_NINO_CHANCE = 0.25
 
 # Products, as named in Kwetu's medicine log.
 SPRAY_PRODUCT = "Dip Dominex"
@@ -276,6 +440,11 @@ SALE_PRICE_KES = {"CATTLE": (150_000, 200_000), "GOAT": (7_000, 12_000), "SHEEP"
 # chance over that whole window instead (e.g. per calf, per birth).
 YEARLY_CHANCE = {"common": 0.20, "occasional": 0.05, "rare": 0.01}
 RAINS_MULTIPLIER = {"long": 1.5, "short": 1.3}
+RAINS_ONSET_MULTIPLIER = 1.5        # worms: extra in the first month of each rainy season
+EL_NINO_MULTIPLIER = 2.0            # El Nino diseases in an El Nino season
+EARLY_LACTATION_DAYS = 60           # "early lactation" for mastitis
+YOUNG_DAYS = 180                    # "young" for young_multiplier
+ENVIRONMENT_SPREAD = 0.6            # how much farms differ in their surroundings (lognormal sigma)
 SPRAY_LAPSE_MULTIPLIER = 3.0        # ECF / heartwater risk after a missed spray week...
 SPRAY_LAPSE_WINDOW_DAYS = (7, 21)   # ...7-21 days later (the 1-3 week incubation)
 DEWORM_OVERDUE_MULTIPLIER = 2.0
@@ -302,5 +471,11 @@ def daily_chance(rank):
 
 def conditions_for(species, groups=("A", "B")):
     """The conditions a species can get, filtered by group. By default only
-    the ones the model predicts (A and B)."""
+    the ones recorded as illnesses (A and B)."""
     return [c for c in CONDITIONS[species] if c.group in groups]
+
+
+def predicted_conditions(species):
+    """The diseases the model predicts: common and occasional illnesses,
+    not the rare outbreak diseases left to the watch list."""
+    return [c for c in conditions_for(species) if c.rank != "rare" and not c.watch_only]

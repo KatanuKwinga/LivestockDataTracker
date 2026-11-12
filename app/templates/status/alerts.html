@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Disease alerts{% endblock %}
+{% block content %}
+{% set BADGE = {"High": "bad", "Watch": "warn", "Low": "good"} %}
+{% set SPECIES_WORDS = {"CATTLE": "Cattle", "GOAT": "Goats", "SHEEP": "Sheep", "CHICKEN": "Chickens"} %}
+<a class="back" href="{{ url_for('main.dashboard') }}"><svg class="i"><use href="#i-back"/></svg>Home</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Disease alerts{% if not missing %} &middot; {{ today.strftime("%d %b %Y") }}{% endif %}</span>
+    <h1>Disease <em>alerts</em></h1>
+    <p>For each group of animals, the diseases likely in the next 30 days, why, and what to do. Set up for farms in central Kenya (Thika area).</p>
+  </div>
+</div>
+
+{% if missing %}
+  <div class="empty">The disease model hasn't been trained yet. Run the notebook <span class="mono">notebooks/disease_model.ipynb</span> once.</div>
+{% else %}
+
+  {# The El Nino switch: the farmer sets it from the Kenya Met Department forecast. #}
+  <section class="panel alerts-switch">
+    <div>
+      <h3>El Niño forecast: <span class="badge badge-{{ 'warn' if el_nino else 'good' }}">{{ "On" if el_nino else "Off" }}</span></h3>
+      <p class="muted">Turn it on when the Kenya Meteorological Department forecasts El Niño. It counts for the October to January rains, so you can turn it on as soon as the forecast comes out.</p>
+    </div>
+    <form method="post" action="{{ url_for('main.switch_el_nino') }}">
+      {{ form.hidden_tag() }}
+      <button type="submit" class="btn btn-ghost btn-small">{{ "Turn off" if el_nino else "Turn on" }}</button>
+    </form>
+  </section>
+
+  {# Warnings from rules, not the model. #}
+  {% if a.el_nino_advice or a.spraying %}
+    <div class="flashes alerts-rules">
+      {% if a.el_nino_advice %}
+        <div class="flash flash-warning"><div><b>El Niño forecast. Before the rains:</b>
+          <ul>{% for line in a.el_nino_advice %}<li>{{ line }}</li>{% endfor %}</ul></div></div>
+      {% endif %}
+      {% for w in a.spraying %}
+        <div class="flash flash-{{ 'warning' if w.tone == 'warn' else 'info' }}">{{ w.text }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if not a.groups %}
+    <div class="empty">No animals on the farm yet.</div>
+  {% else %}
+    <p class="alerts-summary">
+      <span class="badge badge-bad">High &middot; {{ a.counts.High }}</span>
+      <span class="badge badge-warn">Watch &middot; {{ a.counts.Watch }}</span>
+    </p>
+
+    <div class="stack">
+      {% for g in a.groups %}
+        <section class="panel">
+          <div class="panel-head">
+            <h3>{{ g.group }} <span class="muted">{{ SPECIES_WORDS[g.species] }} &middot; {{ g.size }} animal{{ "" if g.size == 1 else "s" }}</span></h3>
+            <span class="badge badge-{{ BADGE[g.worst] }}">{{ g.worst }}</span>
+          </div>
+          {% if g.alerts %}
+            <div class="table-wrap"><table class="table">
+              <thead><tr><th>Disease</th><th>Level</th><th>Chance</th><th>Why</th><th>What to do</th></tr></thead>
+              <tbody>
+                {% for x in g.alerts %}
+                  <tr>
+                    <td>{{ x.disease }}</td>
+                    <td><span class="badge badge-{{ BADGE[x.level] }}">{{ x.level }}</span></td>
+                    <td class="mono">{{ "%.0f"|format(x.chance * 100) }}%</td>
+                    {# Capital first letter only: |capitalize would lowercase "El Niño" and vaccine names. #}
+                    {% set why = x.reasons|join("; ") %}
+                    <td>{{ why[:1]|upper }}{{ why[1:] }}</td>
+                    <td>{{ x.advice or "Watch the group and call the vet if you see signs." }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table></div>
+          {% else %}
+            <p class="muted">Nothing above Low.</p>
+          {% endif %}
+        </section>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% if a.watch_list %}
+    <section class="panel" style="margin-top:16px">
+      <div class="panel-head"><h3>Watch list</h3></div>
+      <p class="muted">Rare outbreak diseases. The model doesn't predict them; keep their vaccinations up to date and call the vet if you suspect one.</p>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Disease</th><th>Species</th><th>Check</th><th>What to do</th></tr></thead>
+        <tbody>
+          {% for w in a.watch_list %}
+            <tr>
+              <td>{{ w.disease }}</td>
+              <td>{{ w.species|join(", ") }}</td>
+              <td>{% for f in w.flags %}<span class="badge badge-warn">{{ f }}</span> {% else %}<span class="muted">—</span>{% endfor %}</td>
+              <td>{{ w.advice }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    </section>
+  {% endif %}
+
+  <p class="muted" style="margin-top:16px">
+    The chance is of at least one case in the group within 30 days. High is {{ "%.0f"|format(a.high_from * 100) }}% or more,
+    Watch {{ "%.0f"|format(a.watch_from * 100) }}% or more. In testing, about 7 in 10 High alerts were followed by the disease.
+    It is a guide to where to look first, not a diagnosis. The alerts use your records: unrecorded cases,
+    dewormings or sprayings make them less accurate.{% if a.trained_on %} Model trained {{ a.trained_on }}.{% endif %}
+  </p>
+{% endif %}
+{% endblock %}

@@ -6,7 +6,7 @@ import pytest
 
 from ml.reference import CONDITIONS, GROWTH, WEIGH_DAYS_PER_YEAR
 from ml.simulator.weights import expected_weight
-from ml.synthetic import FARM_PLANS, simulate_farm, simulate_farms
+from ml.synthetic import FARM_PLANS, simulate_farm, simulate_farms, simulate_many
 
 END = date(2026, 9, 30)
 TABLES = {
@@ -27,7 +27,7 @@ def farms():
 def test_one_farm_has_every_table_with_database_columns():
     tables = simulate_farm(end=END, years=1, seed=1)
     assert set(tables) == {"livestock", "breeding", "mortality", "commercial",
-                           "health", "herd_activities", "weights"}
+                           "health", "herd_activities", "weights", "el_nino"}
     for name, columns in TABLES.items():
         assert list(tables[name].columns) == columns
 
@@ -80,3 +80,10 @@ def test_same_seed_gives_the_same_farm():
     second = simulate_farm(end=END, years=1, seed=3)
     for name in first:
         pd.testing.assert_frame_equal(first[name], second[name])
+
+def test_simulate_many_gives_each_farm_its_own_plan_and_surroundings():
+    tables, about = simulate_many(farms=2, end=date(2026, 9, 30), years=1)
+    assert list(about.index) == ["farm01", "farm02"]
+    assert set(tables["livestock"]["farm"]) == {"farm01", "farm02"}
+    assert tables["livestock"]["animal_id"].is_unique
+    assert (about[["wet", "ticks", "hygiene"]] > 0).all().all()

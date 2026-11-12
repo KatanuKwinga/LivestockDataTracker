@@ -25,7 +25,7 @@
   </a>
 
   <a class="status-tile tone-{{ c.tone }}" href="{{ url_for('main.status_detail', key='condition') }}">
-    <span class="label">Condition</span>
+    <span class="label">Pregnancies</span>
     <span class="state">{{ c.state }}</span>
     <span class="detail">
       {% if c.next %}Next due: {{ c.next.event.dam.tag_number }}{% if c.next.days is not none %}, {{ when(c.next.days) }}{% endif %}
@@ -34,7 +34,7 @@
   </a>
 
   <a class="status-tile tone-{{ m.tone }}" href="{{ url_for('main.status_detail', key='market') }}">
-    <span class="label">Market</span>
+    <span class="label">Sell or Cull</span>
     <span class="state">{{ m.state }}</span>
     <span class="detail">
       {% if m.animals %}{% if m.sell %}{{ m.sell }} to sell{% endif %}{% if m.sell and m.cull %} · {% endif %}{% if m.cull %}{{ m.cull }} to cull{% endif %}

@@ -129,7 +129,7 @@ def test_animal_page_shows_its_history(app, client):
 
     page = client.get(f"/herd/{dam}").data
     for text in (b"G001", b"Galla", b"Brown, white blaze", b"Pneumonia", b"40.6", b"Oxytetracycline",
-                 b"41.5 kg", b"Milk", b"1.5 L", b"Successful Birth", b"G010", b"On farm"):
+                 b"41.5 kg", b"Milk", b"1.5 L", b"Gave birth", b"G010", b"On farm"):
         assert text in page, text
     assert page.index(b"41.5 kg") < page.index(b"38 kg")            # newest weight first
 

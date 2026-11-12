@@ -458,3 +458,9 @@ a.seg:focus-visible span { outline: 2px solid var(--tan); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }
+
+/* Disease alerts page */
+.alerts-switch { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.alerts-switch p { margin-top: 6px; max-width: 640px; }
+.alerts-rules ul { margin: 6px 0 0 18px; padding: 0; }
+.alerts-summary { display: flex; gap: 8px; margin: 0 0 14px; }

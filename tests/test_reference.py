@@ -6,8 +6,8 @@ would silently break the simulator, so these tests catch it early.
 import pytest
 
 from ml.reference import (
-    CONDITIONS, GROUPS, RANKS, SPECIES_INFO, SPRAYS_PER_WEEK, TRIGGERS, VACCINES,
-    conditions_for, daily_chance,
+    CONDITIONS, ENVIRONMENTS, GROUPS, RANKS, SPECIES_INFO, SPRAYS_PER_WEEK, TRIGGERS, VACCINES,
+    conditions_for, daily_chance, predicted_conditions,
 )
 
 ALL = [(species, c) for species, conditions in CONDITIONS.items() for c in conditions]
@@ -26,7 +26,7 @@ def test_each_condition_uses_known_values(species, condition):
     assert set(condition.triggers) <= set(TRIGGERS)
     assert 0 <= condition.death_chance <= 1
     assert set(condition.resistant_breeds) <= set(SPECIES_INFO[species]["breeds"])
-
+    assert condition.environment in (None, *ENVIRONMENTS)
 
 def test_condition_names_are_unique_within_a_species():
     for species, conditions in CONDITIONS.items():
@@ -62,3 +62,22 @@ def test_conditions_for_leaves_out_newborn_deaths_and_injuries():
     assert "Pneumonia" in names
     assert "Injury" not in names
     assert "Weak at birth / starvation" not in names
+
+def test_the_model_predicts_common_and_seasonal_diseases_only():
+    for species in CONDITIONS:
+        predicted = predicted_conditions(species)
+        assert predicted, species
+        for c in predicted:
+            assert c.rank != "rare" and not c.watch_only and c.group in ("A", "B")
+    names = {c.name for c in predicted_conditions("CATTLE")}
+    assert {"East Coast Fever", "Blackquarter", "Mastitis"} <= names
+    assert "Rift Valley Fever" not in names                      # left to the watch list
+
+
+def test_every_predicted_disease_tells_the_farmer_what_to_do_and_where_it_comes_from():
+    for species in CONDITIONS:
+        for c in predicted_conditions(species):
+            if c.name in ("Retained afterbirth", "Vulval infection", "Mange",
+                          "Bacterial enteritis", "Footpad dermatitis"):
+                continue                                         # Kwetu's own records, no lecture note
+            assert c.advice and c.source, c.name

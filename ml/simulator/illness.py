@@ -8,24 +8,26 @@ in the herd. This is where the reference table turns into records.
 from datetime import timedelta
 
 from ml.reference import (
-    CONDITIONS, DEWORM_OVERDUE_MULTIPLIER, FEVER_RISE, ILLNESS_RECOVERY_DAYS,
-    LONG_RAINS, OUTBREAK_BOOST_PER_CASE, OUTBREAK_DAYS, OUTBREAK_MAX_MULTIPLIER,
-    RAINS_MULTIPLIER, REPEAT_TREATMENT_CHANCES, RESISTANT_BREED_MULTIPLIER,
+    CONDITIONS, DEWORM_OVERDUE_MULTIPLIER, EARLY_LACTATION_DAYS, EL_NINO_MULTIPLIER,
+    EL_NINO_PERIODS, FEVER_RISE, ILLNESS_RECOVERY_DAYS, LONG_RAINS,
+    OUTBREAK_BOOST_PER_CASE, OUTBREAK_DAYS, OUTBREAK_MAX_MULTIPLIER, RAINS_MULTIPLIER,
+    RAINS_ONSET_MULTIPLIER, REPEAT_TREATMENT_CHANCES, RESISTANT_BREED_MULTIPLIER,
     SHORT_RAINS, SPECIES_INFO, SPRAY_LAPSE_MULTIPLIER, SPRAY_LAPSE_WINDOW_DAYS,
-    VACCINE_UP_TO_DATE_MULTIPLIER, YEARLY_CHANCE,
+    VACCINE_UP_TO_DATE_MULTIPLIER, YEARLY_CHANCE, YOUNG_DAYS,
 )
 from ml.simulator.routines import deworming_days_overdue, vaccine_status
 
-AFTER_BIRTH_DAYS = 3
-
+def is_el_nino(farm, day):
+    """Is this day inside one of this farm's El Nino seasons?"""
+    return any(start <= day <= end for start, end in farm.el_nino_seasons)
 
 #Chances
 def chance_per_day(condition):
     """The base daily chance for an unprotected animal."""
     if condition.after_birth:
-        window = AFTER_BIRTH_DAYS
+        window = condition.after_birth_days
     elif condition.max_age_days:
-        window = min(condition.max_age_days, 365)
+        window = min(condition.max_age_days - (condition.min_age_days or 0), 365)
     else:
         window = 365
     return 1 - (1 - YEARLY_CHANCE[condition.rank]) ** (1 / window)
@@ -37,20 +39,27 @@ def can_get(animal, condition, day):
         return False
     if condition.max_age_days and animal.age_days(day) >= condition.max_age_days:
         return False
+    if condition.min_age_days and animal.age_days(day) < condition.min_age_days:
+        return False
     if condition.after_birth:
-        return animal.last_birth is not None and 0 <= (day - animal.last_birth).days < AFTER_BIRTH_DAYS
+        return animal.last_birth is not None and 0 <= (day - animal.last_birth).days < condition.after_birth_days
     return True
 
 
 def herd_multiplier(farm, species, condition, day):
-    """The part of the risk shared by the whole herd today: rains, missed
-    spraying, overdue deworming, and how many recent cases there are."""
-    m = 1.0
+    """The part of the risk shared by the whole herd today: the farm's
+    surroundings, rains, El Nino, missed spraying, overdue deworming, and
+    how many recent cases there are."""
+    m = farm.environment.get(condition.environment, 1.0) if condition.environment else 1.0
     if "rains" in condition.triggers:
         if day.month in LONG_RAINS:
             m *= RAINS_MULTIPLIER["long"]
         elif day.month in SHORT_RAINS:
             m *= RAINS_MULTIPLIER["short"]
+    if "rains_onset" in condition.triggers and day.month in (LONG_RAINS[0], SHORT_RAINS[0]):
+        m *= RAINS_ONSET_MULTIPLIER
+    if "el_nino" in condition.triggers and is_el_nino(farm, day):
+        m *= EL_NINO_MULTIPLIER
     if "spray_lapse" in condition.triggers:
         earliest, latest = SPRAY_LAPSE_WINDOW_DAYS
         if any(earliest <= (day - missed).days <= latest
@@ -75,6 +84,11 @@ def daily_risk(animal, condition, day, herd_m):
         risk *= VACCINE_UP_TO_DATE_MULTIPLIER
     if animal.breed in condition.resistant_breeds:
         risk *= RESISTANT_BREED_MULTIPLIER
+    if condition.young_multiplier != 1.0 and animal.age_days(day) < YOUNG_DAYS:
+        risk *= condition.young_multiplier
+    if (condition.early_lactation_multiplier != 1.0 and animal.last_birth is not None
+            and 0 <= (day - animal.last_birth).days < EARLY_LACTATION_DAYS):
+        risk *= condition.early_lactation_multiplier
     return risk
 
 
