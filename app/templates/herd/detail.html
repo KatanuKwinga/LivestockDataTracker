@@ -6,7 +6,7 @@
 <section class="animal-head">
   <div class="animal-title">
     <span class="eyebrow">{{ animal.species|title }}{% if animal.breed %} &middot; {{ animal.breed }}{% endif %}</span>
-    <h1><em>{{ animal.tag_number }}</em></h1>
+    <h1>{{ animal.tag_number }}</h1>
     {% include "herd/_status.html" %}
   </div>
   <div class="form-actions">

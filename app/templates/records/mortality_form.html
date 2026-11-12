@@ -6,7 +6,7 @@
 <div class="page-head">
   <div>
     <span class="eyebrow">{{ species.label }} &middot; Mortality</span>
-    <h1>Record the death of <em>{{ animal.tag_number }}</em></h1>
+    <h1>Record the death of {{ animal.tag_number }}</h1>
     <p>Its records are kept, but it leaves the herd lists and can't get new records.</p>
   </div>
 </div>
@@ -27,7 +27,7 @@
   <div>
     <label class="confirm-box{% if form.confirm.errors %} has-error{% endif %}">
       {{ form.confirm() }}
-      <span>I understand that <b>{{ animal.tag_number }}</b> will be marked as <b>dead</b> and leave the herd lists. This can't be undone on the website yet.</span>
+      <span>I understand that <b>{{ animal.tag_number }}</b> will be marked as <b>dead</b> and leave the herd lists. This can't be undone.</span>
     </label>
     {% for error in form.confirm.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
   </div>

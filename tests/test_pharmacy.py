@@ -22,7 +22,7 @@ def farm_with_worker(client):
     client.post("/auth/logout")                     # in case someone else was logged in
     register_farmer(client)
     login(client, "farmer")
-    client.post("/workers/new", data={"name": "Wanjiru Kamau", "email": "w@example.com", "phone": "",
+    client.post("/workers/new", data={"name": "Wanjiru Kamau", "username": "wanjiru", "phone": "",
                                       "password": "workerpass1", "confirm_password": "workerpass1"})
     client.post("/auth/logout")
 
@@ -34,7 +34,7 @@ def as_farmer(client):
 
 def as_worker(client):
     client.post("/auth/logout")
-    login(client, "worker", email="w@example.com", password="workerpass1")
+    login(client, "worker", username="wanjiru", password="workerpass1")
 
 
 def add_cow(app, tag="C001", email="jane@example.com"):

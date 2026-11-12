@@ -6,11 +6,11 @@ def add_worker_and_log_in_as_them(client):
     register_farmer(client)
     login(client, "farmer")
     client.post("/workers/new", data={
-        "name": "Wanjiru", "email": "w@example.com", "phone": "",
+        "name": "Wanjiru", "username": "wanjiru", "phone": "",
         "password": "workerpass1", "confirm_password": "workerpass1",
     })
     client.post("/auth/logout")
-    login(client, "worker", email="w@example.com", password="workerpass1")
+    login(client, "worker", username="wanjiru", password="workerpass1")
 
 
 def test_add_record_needs_a_login(client):

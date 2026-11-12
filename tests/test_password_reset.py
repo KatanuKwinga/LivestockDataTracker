@@ -115,3 +115,16 @@ def test_email_failure_does_not_crash_the_page(client):
 
     assert response.status_code == 200
     assert b"If an account exists" in response.data
+
+
+def test_workers_get_no_reset_email(app, client):
+    """Workers have no email: the reset page only ever emails farmers."""
+    register_farmer(client)
+    login(client, "farmer")
+    client.post("/workers/new", data={"name": "Wanjiru", "username": "wanjiru", "phone": "",
+                                      "password": "workerpass1", "confirm_password": "workerpass1"})
+    client.post("/auth/logout")
+    with mail.record_messages() as outbox:
+        response = client.post("/auth/reset-password", data={"email": "wanjiru"})
+    assert response.status_code in (200, 302)
+    assert outbox == []

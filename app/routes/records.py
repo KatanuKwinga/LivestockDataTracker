@@ -53,9 +53,9 @@ def species_or_404(species_slug):
 
 
 def category_or_404(key):
-    """The category for this URL, if it exists and its form is built."""
+    """The category for this URL, if it exists."""
     for category in CATEGORIES:
-        if category["key"] == key and category["endpoint"]:
+        if category["key"] == key:
             return category
     abort(404)
 

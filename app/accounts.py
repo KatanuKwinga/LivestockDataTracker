@@ -12,14 +12,13 @@ from app.models import User
 
 def create_account(form, make_role):
     """Save a new User from a filled-in form, plus their role row.
-
-    make_role is a function that receives the new User and returns the role
-    object to save with it, e.g. a Farmer or a Worker. Returns the new User,
-    or None if the email was already taken.
     """
+    # A farmer's form has an email field, a worker's a username field.
+    email, username = getattr(form, "email", None), getattr(form, "username", None)
     user = User(
         name=form.name.data,
-        email=form.email.data,
+        email=email.data if email else None,
+        username=username.data if username else None,
         phone=form.phone.data or None,
         # bcrypt: a one-way hash, so the real password is never stored.
         password_hash=bcrypt.generate_password_hash(form.password.data).decode("utf-8"),
@@ -32,7 +31,7 @@ def create_account(form, make_role):
         db.session.add(make_role(user))
         db.session.commit()
     except IntegrityError:
-        # Two sign-ups with the same email at the same instant: the
+        # Two sign-ups with the same email (or username) at the same instant: the
         # database's unique rule rejects the second. Undo and report it.
         db.session.rollback()
         return None

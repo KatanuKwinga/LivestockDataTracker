@@ -11,13 +11,21 @@
   </nav>
   <div>
     <h2>{{ "Welcome back" if role == "farmer" else "Worker sign in" }}</h2>
-    <p class="hint">{{ "Sign in to manage your farm, workers and reports." if role == "farmer" else "Use the email and password your farmer gave you." }}</p>
+    <p class="hint">{{ "Sign in to manage your farm, workers and reports." if role == "farmer" else "Use the username and password your farmer gave you." }}</p>
   </div>
   <form method="post" novalidate class="stack">
     {{ form.hidden_tag() }}
-    {{ field(form.email, type="email", autocomplete="email", placeholder="you@example.com") }}
+    {% if role == "farmer" %}
+      {{ field(form.email, type="email", autocomplete="email", placeholder="you@example.com") }}
+    {% else %}
+      {{ field(form.username, autocomplete="username", autocapitalize="none", placeholder="e.g. wanjiru") }}
+    {% endif %}
     {{ field(form.password, autocomplete="current-password") }}
-    <a class="link-line" style="justify-self:end;font-size:13.5px" href="{{ url_for('auth.reset_request') }}">Forgot password?</a>
+    {% if role == "farmer" %}
+      <a class="link-line" style="justify-self:end;font-size:13.5px" href="{{ url_for('auth.reset_request') }}">Forgot password?</a>
+    {% else %}
+      <p class="hint" style="justify-self:end;font-size:13.5px">Forgot your password? Ask your farmer to set a new one.</p>
+    {% endif %}
     <div>{{ submit("Sign in", "btn-sand") }}</div>
   </form>
   <p class="foot">

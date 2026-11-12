@@ -74,5 +74,10 @@ def register_farmer(client, name="Jane Farmer", email="jane@example.com", passwo
     })
 
 
-def login(client, role, email="jane@example.com", password="password123"):
+def login(client, role, email="jane@example.com", password="password123", username=None):
+    """Farmers sign in with an email, workers with a username. A worker
+    login without a username types the email into the username box (as
+    someone at the wrong door would)."""
+    if role == "worker":
+        return client.post("/auth/login/worker", data={"username": username or email, "password": password})
     return client.post(f"/auth/login/{role}", data={"email": email, "password": password})

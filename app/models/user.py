@@ -21,8 +21,11 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     # unique=True makes the DATABASE itself refuse a second account with the
-    # same email, even if two sign-ups arrive at the same instant.
-    email = db.Column(db.String(150), unique=True, nullable=False)
+    # same email (or username), even if two sign-ups arrive at the same instant.
+    # Farmers sign in with an email; workers with a username the farmer
+    # chooses. So each user has one or the other, and the other is empty.
+    email = db.Column(db.String(150), unique=True)
+    username = db.Column(db.String(30), unique=True)
     # Only the bcrypt hash is stored, never the password itself.
     password_hash = db.Column(db.String(128), nullable=False)
     phone = db.Column(db.String(20))
@@ -113,8 +116,8 @@ class Worker(UserMixin, db.Model):
         return self.user.name
 
     @property
-    def email(self):
-        return self.user.email
+    def username(self):
+        return self.user.username
 
 
 @login_manager.user_loader

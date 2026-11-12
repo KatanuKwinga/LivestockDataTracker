@@ -4,7 +4,7 @@
 <section class="saved">
   <span class="saved-mark" aria-hidden="true"><svg class="i"><use href="#i-check"/></svg></span>
   <span class="eyebrow">Session saved</span>
-  <h1>{{ activity.title }}: <em>{{ species.label|lower }}</em></h1>
+  <h1>{{ activity.title }}: {{ species.label|lower }}</h1>
   <dl class="facts">
     <div><dt>Date</dt><dd>{{ session.date.strftime("%d %b %Y") }}</dd></div>
     <div><dt>{{ "Vaccine" if activity_key == "vaccinate" else "Product" }}</dt><dd>{{ session.product }}</dd></div>

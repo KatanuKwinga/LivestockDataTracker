@@ -46,13 +46,44 @@ class FarmerRegistrationForm(FlaskForm):
 
 
 class LoginForm(FlaskForm):
-    email = StringField("Email", filters=[normalise_email], validators=[DataRequired(), Email()])
+    """The farmer door. No Email() check here: if a worker types their
+    username by mistake, the login code can still point them to their door."""
+    email = StringField("Email", filters=[normalise_email], validators=[DataRequired()])
     password = PasswordField("Password", validators=[DataRequired()])
     submit = SubmitField("Log in")
 
 
-class WorkerCreationForm(FarmerRegistrationForm):
+class WorkerLoginForm(FlaskForm):
+    """The worker door: the username and password the farmer gave them."""
+    username = StringField("Username", filters=[normalise_email], validators=[DataRequired()])
+    password = PasswordField("Password", validators=[DataRequired()])
+    submit = SubmitField("Log in")
+
+
+# Lower-case letters, numbers, dots, dashes and underscores, 3 to 30 of them,
+# e.g. "wanjiru" or "john.k". Stored lower-case, so "Wanjiru" and "wanjiru"
+# are the same person.
+USERNAME_RULE = Regexp(r"^[a-z0-9._-]{3,30}$",
+                       message="Use 3 to 30 letters, numbers, dots, dashes or underscores (no spaces).")
+
+class WorkerCreationForm(FlaskForm):
+    """The farmer adds a worker. Workers have a username, not an email:
+    password resets and emails belong to the farmer's account only."""
+    name = StringField("Full name", filters=[strip_spaces], validators=[DataRequired(), Length(max=100)])
+    username = StringField("Username", filters=[normalise_email], validators=[DataRequired(), USERNAME_RULE])
+    phone = StringField("Phone (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=20)])
+    password = PasswordField(
+        "Password", validators=[DataRequired(), Length(min=8, message="Use at least 8 characters.")]
+    )
+    confirm_password = PasswordField(
+        "Confirm password",
+        validators=[DataRequired(), EqualTo("password", message="The passwords don't match.")],
+    )
     submit = SubmitField("Add worker")
+
+    def validate_username(self, field):
+        if User.query.filter_by(username=field.data).first():
+            raise ValidationError("That username is taken. Try adding a number, e.g. wanjiru2.")
 
 
 class RequestResetForm(FlaskForm):
@@ -61,6 +92,8 @@ class RequestResetForm(FlaskForm):
 
 
 class ResetPasswordForm(FlaskForm):
+    """A new password: used from the emailed link (farmers) and by a farmer
+    setting a new password for one of their workers."""
     password = PasswordField(
         "New password", validators=[DataRequired(), Length(min=8, message="Use at least 8 characters.")]
     )

@@ -6,7 +6,7 @@
 <div class="page-head">
   <div>
     <span class="eyebrow">Treat a group &middot; {{ activity.title }}</span>
-    <h1>{{ activity.title }}: <em>{{ species.label|lower }}</em></h1>
+    <h1>{{ activity.title }}: {{ species.label|lower }}</h1>
     <p>
       {% if activity.per_animal %}Untick any animal that was missed. Each ticked animal gets its own record.
       {% else %}One record for the whole herd of {{ animals|length }} {{ species.label|lower }}.{% endif %}

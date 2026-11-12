@@ -6,7 +6,7 @@
 <div class="page-head">
   <div>
     <span class="eyebrow">{{ species.label }} &middot; Breeding</span>
-    <h1>Breeding record for <em>{{ animal.tag_number }}</em></h1>
+    <h1>Breeding record for {{ animal.tag_number }}</h1>
     <p>
       {% if open_record %}
         {{ animal.tag_number }} is recorded as pregnant{% if open_record.expected_delivery_date %}, due {{ open_record.expected_delivery_date.strftime("%d %b %Y") }}{% endif %}. Record the birth or the loss.

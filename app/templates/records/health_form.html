@@ -6,8 +6,8 @@
 <div class="page-head">
   <div>
     <span class="eyebrow">{{ species.label }} &middot; Health</span>
-    <h1>Health record for <em>{{ animal.tag_number }}</em></h1>
-    <p>Choose what happened first: the boxes below change to match.</p>
+    <h1>Health record for {{ animal.tag_number }}</h1>
+    <p>Choose what happened then fill in the form.</p>
   </div>
 </div>
 
@@ -53,7 +53,7 @@
                help="In the medicine's unit (ml, tablets...).") }}
     {% endif %}
     {{ field(form.description, wide=True, rows=3,
-             help="What you noticed: not eating, coughing, limping, how long it has been ill.") }}
+             help="What you noticed; not eating, coughing, limping, how long it has been ill.") }}
   </div>
 
   <datalist id="disease-options">

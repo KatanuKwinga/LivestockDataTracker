@@ -1,13 +1,15 @@
 """Account pages: farmer registration, login (separate doors for farmers and
-workers, as in the wireframes) and logout. Workers and password reset are
-added in later batches."""
+workers, as in the wireframes), logout, and password reset by email.
+
+Farmers sign in with their email; workers with a username their farmer
+gave them. Everything to do with email belongs to the farmer's account."""
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_mail import Message
 
 from app.accounts import create_account
 from app.extensions import bcrypt, db, mail
-from app.forms import FarmerRegistrationForm, LoginForm, RequestResetForm, ResetPasswordForm
+from app.forms import FarmerRegistrationForm, LoginForm, RequestResetForm, ResetPasswordForm, WorkerLoginForm
 from app.models import Farmer, User
 
 # url_prefix: every route here starts with /auth, e.g. /auth/register.
@@ -22,6 +24,12 @@ def is_safe_redirect(target):
     """
     return bool(target) and target.startswith("/") and not target.startswith("//") and "\\" not in target
 
+def find_user(typed):
+    """The account someone typed in: farmers use their email, workers their
+    username. Anything with an @ is looked up as an email."""
+    if "@" in typed:
+        return User.query.filter_by(email=typed).first()
+    return User.query.filter_by(username=typed).first()
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
@@ -54,9 +62,11 @@ def login(role):
     if current_user.is_authenticated:
         return redirect(url_for("main.dashboard"))
 
-    form = LoginForm()
+    # Farmers sign in with their email, workers with their username.
+    form = LoginForm() if role == "farmer" else WorkerLoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
+        typed = form.email.data if role == "farmer" else form.username.data
+        user = find_user(typed)
 
         # check_password_hash hashes the typed password the same way and
         # compares the result with the stored hash. The password itself is
@@ -79,9 +89,9 @@ def login(role):
             next_page = request.args.get("next")
             return redirect(next_page if is_safe_redirect(next_page) else url_for("main.dashboard"))
 
-        # Deliberately the same message for "no such email" and "wrong
+        # Deliberately the same message for "no such account" and "wrong
         # password", so the form can't be used to find out who has an account.
-        flash("Invalid email or password.", "danger")
+        flash("Invalid email or password." if role == "farmer" else "Invalid username or password.", "danger")
 
     return render_template("auth/login.html", form=form, role=role)
 
@@ -132,14 +142,16 @@ def send_reset_email(user):
 
 @auth_bp.route("/reset-password", methods=["GET", "POST"])
 def reset_request():
-    """Step 1: ask for the email address."""
+    """Step 1: ask for the email address from farmers."""
     if current_user.is_authenticated:
         return redirect(url_for("main.dashboard"))
 
     form = RequestResetForm()
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data).first()
-        if user:
+        # Only farmers have an email. A worker who forgets their password
+        # asks their farmer, who sets a new one on the Workers page.
+        if user and user.farmer:
             try:
                 send_reset_email(user)
             except Exception:

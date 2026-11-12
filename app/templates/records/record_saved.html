@@ -4,8 +4,8 @@
 <section class="saved">
   <span class="saved-mark" aria-hidden="true"><svg class="i"><use href="#i-check"/></svg></span>
   <span class="eyebrow">{{ category.title }} record saved</span>
-  <h1>Saved for <em>{{ animal.tag_number }}</em></h1>
-  {# The record just saved, so a mistake can be spotted straight away. #}
+  <h1>Saved for {{ animal.tag_number }}</h1>
+  {# See your recently saved records to spot any mistakes. #}
   <dl class="facts">
     {% if category.key != "breeding" %}
       <div><dt>Date</dt><dd>{{ (record.date_of_death if category.key == "mortality" else record.date).strftime("%d %b %Y") }}</dd></div>

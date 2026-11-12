@@ -74,13 +74,13 @@ def test_wrong_door_hint_only_after_correct_password(client):
 
     # Right password, wrong door: moved to the farmer login, with the hint.
     response = client.post("/auth/login/worker", follow_redirects=True,
-                           data={"email": "jane@example.com", "password": "password123"})
+                           data={"username": "jane@example.com", "password": "password123"})
     assert response.request.path == "/auth/login/farmer"
     assert b"This is a farmer account" in response.data
 
     # Wrong password at the wrong door: only the general message.
     response = login(client, "worker", password="wrong-password")
-    assert b"Invalid email or password." in response.data
+    assert b"Invalid username or password." in response.data
     assert b"This is a farmer account" not in response.data
 
 

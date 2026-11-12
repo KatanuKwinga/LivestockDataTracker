@@ -8,7 +8,7 @@ from tests.conftest import login, register_farmer
 
 def add_worker(client):
     client.post("/workers/new", data={
-        "name": "Wanjiru Kamau", "email": "wanjiru@example.com", "phone": "",
+        "name": "Wanjiru Kamau", "username": "wanjiru", "phone": "",
         "password": "workerpass1", "confirm_password": "workerpass1",
     })
 

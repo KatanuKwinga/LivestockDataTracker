@@ -6,7 +6,7 @@
 <div class="page-head">
   <div>
     <span class="eyebrow">{{ species.label }} &middot; Production</span>
-    <h1>{{ product.item }} from <em>{{ animal.tag_number }}</em></h1>
+    <h1>Record {{ product.item }} from {{ animal.tag_number }}</h1>
     <p>
       {% if last %}Last recorded on {{ last.date.strftime("%d %b %Y") }}: <b class="mono">{{ "%g"|format(last.yield_amount) }} {{ last.metric }}</b>.
       {% else %}This is the first {{ product.item|lower }} record for {{ animal.tag_number }}.{% endif %}

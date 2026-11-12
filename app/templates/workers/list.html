@@ -5,7 +5,7 @@
   <div>
     <span class="eyebrow">Your farm</span>
     <h1>Workers</h1>
-    <p>People who can record data for your farm. They sign in through the Worker door with the password you set.</p>
+    <p>People who can record data for your farm. They sign in through the Worker door with the username and password you set. If one forgets their password, set a new one here.</p>
   </div>
   <a class="btn btn-olive" href="{{ url_for('workers.new_worker') }}">Add worker <svg class="arrow" aria-hidden="true"><use href="#arrow"/></svg></a>
 </div>
@@ -13,10 +13,15 @@
   <div class="panel">
     <div class="table-wrap">
       <table class="table">
-        <thead><tr><th>Name</th><th>Email</th><th>Phone</th></tr></thead>
+        <thead><tr><th>Name</th><th>Username</th><th>Phone</th><th><span class="visually-hidden">Password</span></th></tr></thead>
         <tbody>
           {% for worker in workers %}
-            <tr><td>{{ worker.name }}</td><td>{{ worker.email }}</td><td class="mono">{{ worker.user.phone or "—" }}</td></tr>
+            <tr>
+              <td>{{ worker.name }}</td>
+              <td class="mono">{{ worker.username or "—" }}</td>
+              <td class="mono">{{ worker.user.phone or "—" }}</td>
+              <td><a class="link-line" href="{{ url_for('workers.reset_worker_password', worker_id=worker.worker_id) }}">Set new password</a></td>
+            </tr>
           {% endfor %}
         </tbody>
       </table>

@@ -6,7 +6,7 @@
 <div class="page-head">
   <div>
     <span class="eyebrow">{{ species.label }} &middot; Weight</span>
-    <h1>Weigh <em>{{ animal.tag_number }}</em></h1>
+    <h1>Weigh {{ animal.tag_number }}</h1>
     <p>
       {% if last %}Last weighed on {{ last.date.strftime("%d %b %Y") }} at <b class="mono">{{ "%g"|format(last.weight) }} kg</b>.
       {% else %}This is its first weigh-in.{% endif %}

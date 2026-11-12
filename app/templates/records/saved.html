@@ -4,7 +4,7 @@
 <section class="saved">
   <span class="saved-mark" aria-hidden="true"><svg class="i"><use href="#i-check"/></svg></span>
   <span class="eyebrow">{{ "Registered" if action == "registered" else "Changes saved" }}</span>
-  <h1><em>{{ animal.tag_number }}</em> is saved</h1>
+  <h1>{{ animal.tag_number }} has been saved</h1>
   <dl class="facts">
     <div><dt>Species</dt><dd>{{ animal.species|title }}</dd></div>
     <div><dt>Sex</dt><dd>{{ animal.gender|title }}</dd></div>
