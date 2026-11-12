@@ -9,6 +9,7 @@ from app.decorators import farmer_required
 from app.extensions import db
 from app.farm import current_farm_id, still_on_farm
 from app.models import Farmer, Livestock, Worker
+from app.routes.records import SLUG_FOR
 
 main_bp = Blueprint("main", __name__)
 
@@ -85,7 +86,7 @@ def status_detail(key):
         abort(404)
     title, work_out = STATUS_PAGES[key]
     return render_template(f"status/{key}.html", title=title, s=work_out(current_farm_id()),
-                           unwell_days=status.UNWELL_DAYS, today=date.today())
+                           unwell_days=status.UNWELL_DAYS, today=date.today(), slugs=SLUG_FOR)
 
 RISK_LEVELS = ("High", "Medium", "Low")
 

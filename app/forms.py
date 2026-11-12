@@ -410,37 +410,69 @@ class DepartureForm(FlaskForm):
             valid = False
         return valid
 
+class YoungField(SelectMultipleField):
+    """A list of tick boxes, one per young animal that could be linked to a
+    birth. The route fills in the choices."""
+    def __init__(self, label, **kwargs):
+        super().__init__(label, coerce=int, choices=[], widget=widgets.ListWidget(prefix_label=False),
+                         option_widget=widgets.CheckboxInput(), **kwargs)
+
+
+# How far a young one's date of birth may be from the birth date (a birth
+# can be written down a day or two late, or the date guessed).
+BIRTH_DATE_SLACK_DAYS = 3
+
+
+def check_young(field, young_by_id, birth_date):
+    """Each young one ticked must have been born around the birth date. One
+    with no date of birth gets the birth date when it is saved."""
+    ok = True
+    for animal_id in field.data or []:
+        young = young_by_id.get(animal_id)
+        if young and young.date_of_birth and abs((young.date_of_birth - birth_date).days) > BIRTH_DATE_SLACK_DAYS:
+            field.errors.append(f"{young.tag_number} was born on {young.date_of_birth:%d %b %Y}, not around "
+                                f"{birth_date:%d %b %Y}. Untick it, or correct its date of birth first.")
+            ok = False
+    return ok
+
+
+def young_label(animal):
+    """How a young animal is shown in the tick list, e.g. "G021, female, born 03 Mar 2026"."""
+    born = f"born {animal.date_of_birth:%d %b %Y}" if animal.date_of_birth else "no date of birth"
+    return f"{animal.tag_number}, {animal.gender.lower()}, {born}"
 
 
 class BreedingForm(FlaskForm):
     """A breeding event for one female: she was mated (and is now expected
-    to give birth), she gave birth, or she lost the pregnancy.
+    to give birth), she gave birth, or she lost the pregnancy / the young
+    were born dead.
 
     A birth or a loss closes her open pregnancy record if she has one, so a
-    pregnancy and its outcome stay one breeding record. Live newborns are
-    counted here and registered as new animals by the route."""
-    
+    pregnancy and its outcome stay one breeding record. Live young are
+    registered first under New animal, then ticked here to link them to
+    their mother (or linked later from the birth record)."""
+
     event = RadioField("What happened?", default="MATED", choices=[
-        ("MATED", "Mated / pregnant"), ("BIRTH", "Gave birth"), ("NO_BIRTH", "Lost the pregnancy"),
+        ("MATED", "Mated / pregnant"), ("BIRTH", "Gave birth"), ("NO_BIRTH", "Lost the pregnancy / born dead"),
     ], validators=[DataRequired(message="Choose what happened.")])
     sire = SelectField("Father (optional)", choices=[])
     mated_on = DateField("Date mated (optional)", validators=[Optional()])
     expected_date = DateField("Expected birth date (optional)", validators=[Optional()])
     birth_date = DateField("Date", validators=[Optional()])
-    females_born = IntegerField("Females born alive", default=0, validators=[
-        InputRequired(message="Enter a number, 0 if none."), NumberRange(min=0, max=30)])
-    males_born = IntegerField("Males born alive", default=0, validators=[
-        InputRequired(message="Enter a number, 0 if none."), NumberRange(min=0, max=30)])
+    young = YoungField("Her young (already registered)")
     stillborn = IntegerField("Born dead", default=0, validators=[
         InputRequired(message="Enter a number, 0 if none."), NumberRange(min=0, max=30)])
+    notes = TextAreaField("Notes (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=500)])
     submit = SubmitField("Save")
 
-    def __init__(self, dam, males, open_record, **kwargs):
+    def __init__(self, dam, males, open_record, young, **kwargs):
         super().__init__(**kwargs)
         self.dam = dam
         self.open_record = open_record
         self.sire.choices = [("", "Not known / not on this farm")] + [
             (str(male.animal_id), male.tag_number) for male in males]
+        self.young_by_id = {animal.animal_id: animal for animal in young}
+        self.young.choices = [(animal.animal_id, young_label(animal)) for animal in young]
 
     def validate(self, extra_validators=None):
         valid = super().validate(extra_validators)
@@ -470,9 +502,28 @@ class BreedingForm(FlaskForm):
                     check_record_date(self.birth_date, self.dam)
                 except ValidationError as error:
                     valid = problem(self.birth_date, str(error))
-            if event == "BIRTH" and self.females_born.data == 0 and self.males_born.data == 0:
-                valid = problem(self.females_born, 'No live young? Choose "Lost the pregnancy" instead.')
+                if event == "BIRTH" and not check_young(self.young, self.young_by_id, self.birth_date.data):
+                    valid = False
         return valid
+
+
+class LinkYoungForm(FlaskForm):
+    """Link (or unlink) registered young to a birth that is already recorded."""
+    young = YoungField("Her young")
+    submit = SubmitField("Save")
+
+    def __init__(self, record, young, **kwargs):
+        super().__init__(**kwargs)
+        self.record = record
+        self.young_by_id = {animal.animal_id: animal for animal in young}
+        self.young.choices = [(animal.animal_id, young_label(animal)) for animal in young]
+
+    def validate(self, extra_validators=None):
+        valid = super().validate(extra_validators)
+        return check_young(self.young, self.young_by_id, self.record.actual_delivery_date) and valid
+
+
+
 
 
 class ProductionForm(FlaskForm):

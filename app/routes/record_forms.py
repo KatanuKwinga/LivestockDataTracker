@@ -3,11 +3,13 @@ from datetime import date, timedelta
 
 from flask import abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
-from app.farm import farm_animals, get_farm_animal_or_404, suggest_tag_number
-from app.forms import BreedingForm, DeathForm, DepartureForm, HealthForm, ProductionForm, SaleForm, WeightForm
+from app.farm import current_farm_id, farm_animals, get_farm_animal_or_404, suggest_tag_number
+from app.forms import (BreedingForm, DeathForm, DepartureForm, HealthForm, LinkYoungForm, ProductionForm, SaleForm,
+                       WeightForm)
 from app.models import (BreedingRecord, CommercialInfo, Departure, HealthRecord, Farmer, Livestock, MortalityRecord,
                         ProductionData, WeightRecord)
 from app.routes.herd import MARKET_WORDS
@@ -119,19 +121,39 @@ def newborn_breed(dam, sire):
         return "Cross"
     return dam.breed or (sire.breed if sire else None)
 
+# Young born more than this long ago aren't offered as a new birth's young.
+YOUNG_FOR_DAYS = 365
 
-def register_newborns(dam, record, sire, females, males):
-    """Register each live newborn as a new animal, linked to its birth
-    (b_record_id), so its page shows its mother and father. Tags are the
-    next free numbers; they can be changed with Edit details."""
-    for gender, count in (("FEMALE", females), ("MALE", males)):
-        for _ in range(count):
-            db.session.add(Livestock(
-                farmer_id=dam.farmer_id, species=dam.species, gender=gender,
-                tag_number=suggest_tag_number(dam.farmer_id, dam.species),
-                breed=newborn_breed(dam, sire), date_of_birth=record.actual_delivery_date,
-                b_record_id=record.b_record_id, description=f"Born to {dam.tag_number}"))
-            db.session.flush()        # so the next suggest_tag_number() sees this tag
+
+def possible_young(dam, record=None):
+    """The animals that could be this mother's young: the same species, on
+    the same farm, with no mother recorded yet (or already linked to this
+    birth), and born in the last year or with no date of birth. Animals that
+    are already a mother or father themselves are left out."""
+    since = date.today() - timedelta(days=YOUNG_FOR_DAYS)
+    free = Livestock.b_record_id.is_(None)
+    if record is not None and record.b_record_id:
+        free = free | (Livestock.b_record_id == record.b_record_id)
+    parents = select(BreedingRecord.animal_id).union(
+        select(BreedingRecord.sire_id).where(BreedingRecord.sire_id.isnot(None)))
+    return (farm_animals()
+            .filter(Livestock.species == dam.species, Livestock.animal_id != dam.animal_id, free,
+                    Livestock.animal_id.not_in(parents),
+                    Livestock.date_of_birth.is_(None) | (Livestock.date_of_birth >= since))
+            .order_by(Livestock.date_of_birth.desc(), Livestock.tag_number).all())
+
+
+def link_young(record, young_ids, young_by_id):
+    """Point each ticked young one at this birth, and unlink any that were
+    linked before but are now unticked. One with no date of birth gets the
+    birth date."""
+    for animal in young_by_id.values():
+        if animal.animal_id in young_ids:
+            animal.b_record_id = record.b_record_id
+            if animal.date_of_birth is None:
+                animal.date_of_birth = record.actual_delivery_date
+        elif animal.b_record_id == record.b_record_id:
+            animal.b_record_id = None
 
 
 @records_bp.route("/add/<species_slug>/breeding/<int:animal_id>", methods=["GET", "POST"])
@@ -146,7 +168,7 @@ def breeding_form(species_slug, animal_id):
                    .order_by(BreedingRecord.b_record_id.desc()).first())
     males = (farm_animals().filter(Livestock.species == dam.species, Livestock.gender == "MALE")
              .order_by(Livestock.tag_number).all())
-    form = BreedingForm(dam, males, open_record)
+    form = BreedingForm(dam, males, open_record, possible_young(dam, open_record))
     if request.method == "GET" and open_record is not None:
         form.event.data = "BIRTH"                       # the likely next step
         form.sire.data = str(open_record.sire_id or "")
@@ -159,7 +181,7 @@ def breeding_form(species_slug, animal_id):
             if expected is None and form.mated_on.data:
                 expected = form.mated_on.data + timedelta(days=BIRTH_AFTER_DAYS[dam.species])
             db.session.add(BreedingRecord(animal_id=dam.animal_id, sire_id=sire_id, status="EXPECTANT",
-                                          expected_delivery_date=expected, num_stillborn=0))
+                                          expected_delivery_date=expected, num_stillborn=0, notes=form.notes.data or None))
         else:
             record = open_record
             if record is None:                           # the pregnancy wasn't recorded first
@@ -169,18 +191,11 @@ def breeding_form(species_slug, animal_id):
             record.status = "SUCCESSFUL BIRTH" if event == "BIRTH" else "NO BIRTH"
             record.actual_delivery_date = form.birth_date.data
             record.num_stillborn = form.stillborn.data
+            record.notes = form.notes.data or record.notes
             if event == "BIRTH":
                 db.session.flush()                       # gives a new record its id for b_record_id
-                sire = db.session.get(Livestock, record.sire_id) if record.sire_id else None
-                register_newborns(dam, record, sire, form.females_born.data, form.males_born.data)
-        try:
-            db.session.commit()
-        except IntegrityError:
-            # Someone registered an animal with one of the new tags at the
-            # same moment; nothing was saved, so it is safe to try again.
-            db.session.rollback()
-            flash("Another animal took one of the new tag numbers just now. Please save again.", "warning")
-            return redirect(request.url)
+                link_young(record, set(form.young.data or []), form.young_by_id)
+        db.session.commit()
         return redirect(url_for("records.record_saved", animal_id=dam.animal_id, category_key="breeding"))
 
     return render_template("records/breeding_form.html", form=form, animal=dam, species=species,
@@ -326,3 +341,30 @@ def record_saved(animal_id, category_key):
     category = next(c for c in CATEGORIES if c["key"] == category_key)
     return render_template("records/record_saved.html", animal=animal, record=record, category=category,
                            species_slug=SLUG_FOR[animal.species])
+
+
+
+def farm_birth_or_404(b_record_id):
+    """A birth record on THIS farm (through its mother), or 404."""
+    return (BreedingRecord.query.join(BreedingRecord.dam)
+            .filter(BreedingRecord.b_record_id == b_record_id, Livestock.farmer_id == current_farm_id(),
+                    BreedingRecord.status == "SUCCESSFUL BIRTH")
+            .first_or_404())
+
+
+@records_bp.route("/breeding/<int:b_record_id>/young", methods=["GET", "POST"])
+@login_required
+def birth_young(b_record_id):
+    """Tick which registered young came from a birth already recorded."""
+    record = farm_birth_or_404(b_record_id)
+    dam = record.dam
+    form = LinkYoungForm(record, possible_young(dam, record))
+    if request.method == "GET":
+        form.young.data = [animal.animal_id for animal in record.offspring]
+    if form.validate_on_submit():
+        link_young(record, set(form.young.data or []), form.young_by_id)
+        db.session.commit()
+        flash(f"{dam.tag_number}'s young are saved: {record.num_born_alive} linked.", "success")
+        return redirect(url_for("herd.animal_detail", animal_id=dam.animal_id))
+    return render_template("records/birth_young.html", form=form, record=record, dam=dam,
+                           species_slug=SLUG_FOR[dam.species])

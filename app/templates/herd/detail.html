@@ -99,17 +99,25 @@
     <div class="panel-head"><h3>Breeding</h3><span class="count mono">{{ breeding|length }}</span></div>
     {% if breeding %}
       <div class="table-wrap"><table class="table">
-        <thead><tr><th>Status</th><th>{{ "Father" if animal.gender == "FEMALE" else "Mother" }}</th><th>Due</th><th>Born on</th><th>Born alive</th><th>Stillborn</th></tr></thead>
-        <tbody>
+        <thead><tr><th>Status</th><th>{{ "Father" if animal.gender == "FEMALE" else "Mother" }}</th><th>Due</th><th>Date</th><th>Young</th><th>Born dead</th><th>Notes</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
           {% for b in breeding %}
             {% set partner = b.sire if animal.gender == "FEMALE" else b.dam %}
             <tr>
-              <td>{{ b.status|title }}</td>
+              <td>{{ b.status_label }}</td>
               <td class="mono">{% if partner %}<a href="{{ url_for('herd.animal_detail', animal_id=partner.animal_id) }}">{{ partner.tag_number }}</a>{% else %}—{% endif %}</td>
               <td class="mono">{{ b.expected_delivery_date.strftime("%d %b %Y") if b.expected_delivery_date else "—" }}</td>
               <td class="mono">{{ b.actual_delivery_date.strftime("%d %b %Y") if b.actual_delivery_date else "—" }}</td>
-              <td class="mono">{{ b.num_born_alive }}</td>
+                            <td class="mono">{% for young in b.offspring %}<a href="{{ url_for('herd.animal_detail', animal_id=young.animal_id) }}">{{ young.tag_number }}</a>{{ ", " if not loop.last }}{% else %}{{ "0" if b.status == "SUCCESSFUL BIRTH" else "—" }}{% endfor %}</td>
               <td class="mono">{{ b.num_stillborn }}</td>
+              <td>{{ b.notes or "—" }}</td>
+              <td>
+                {% if animal.gender == "FEMALE" and b.status == "EXPECTANT" and animal.status == "ON_FARM" %}
+                  <a class="link-line" href="{{ url_for('records.breeding_form', species_slug=species_slug, animal_id=animal.animal_id) }}">Record the outcome</a>
+                {% elif animal.gender == "FEMALE" and b.status == "SUCCESSFUL BIRTH" %}
+                  <a class="link-line" href="{{ url_for('records.birth_young', b_record_id=b.b_record_id) }}">Her young</a>
+                {% endif %}
+              </td>
+            </tr>
             </tr>
           {% endfor %}
         </tbody>

@@ -8,7 +8,7 @@ from app.extensions import db
 from app.farm import (current_farm_id, farm_animals, get_farm_animal_or_404,
                       search_animals, still_on_farm, suggest_tag_number)
 from app.csv_import import KINDS
-from app.forms import AnimalForm, ImportFileForm
+from app.forms import BIRTH_DATE_SLACK_DAYS, AnimalForm, ImportFileForm
 from app.models import Livestock
 
 records_bp = Blueprint("records", __name__, url_prefix="/records")
@@ -111,7 +111,31 @@ def general_form(species_slug, animal_id=None):
     if request.method == "GET" and animal is None:
         form.tag_number.data = suggest_tag_number(current_farm_id(), species["value"])
 
-    if form.validate_on_submit():
+    # Registering a young one straight from its mother's birth record
+    # (?birth=<id>): its date of birth and breed are filled in, and it is
+    # linked to the birth when saved.
+    birth = None
+    if animal is None and request.args.get("birth", type=int):
+        from app.routes.record_forms import farm_birth_or_404, newborn_breed   # here, to avoid a circular import
+        birth = farm_birth_or_404(request.args.get("birth", type=int))
+        if birth.dam.species != species["value"]:
+            abort(404)
+
+    form = AnimalForm(current_farm_id(), animal)
+    if request.method == "GET" and animal is None:
+        form.tag_number.data = suggest_tag_number(current_farm_id(), species["value"])
+        if birth is not None:
+            form.date_of_birth.data = birth.actual_delivery_date
+            form.breed.data = newborn_breed(birth.dam, birth.sire)
+
+    valid = form.validate_on_submit()
+    if valid and birth is not None:
+        born = form.date_of_birth.data
+        if born is None or abs((born - birth.actual_delivery_date).days) > BIRTH_DATE_SLACK_DAYS:
+            form.date_of_birth.errors.append(f"Its mother gave birth on {birth.actual_delivery_date:%d %b %Y}: "
+                                             f"use that date (or within {BIRTH_DATE_SLACK_DAYS} days of it).")
+            valid = False
+    if valid:
         is_new = animal is None
         if is_new:
             animal = Livestock(farmer_id=current_farm_id(), species=species["value"])
@@ -122,6 +146,8 @@ def general_form(species_slug, animal_id=None):
         animal.breed = form.breed.data or None
         animal.date_of_birth = form.date_of_birth.data
         animal.description = form.description.data or None
+        if birth is not None:
+            animal.b_record_id = birth.b_record_id
         try:
             db.session.commit()
         except IntegrityError:
@@ -133,7 +159,7 @@ def general_form(species_slug, animal_id=None):
             return redirect(url_for("records.saved", animal_id=animal.animal_id,
                                     action="registered" if is_new else "updated"))
 
-    return render_template("records/general_form.html", form=form, animal=animal, species=species,
+    return render_template("records/general_form.html", form=form, animal=animal, species=species, birth=birth,
                            species_slug=species_slug, breeds=BREEDS[species["value"]],
                            today=date.today().isoformat())
 

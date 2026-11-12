@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_macros.html" import submit %}
+{% block title %}{{ dam.tag_number }}'s young{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('herd.animal_detail', animal_id=dam.animal_id) }}"><svg class="i"><use href="#i-back"/></svg>Back to {{ dam.tag_number }}</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Breeding &middot; Birth on {{ record.actual_delivery_date.strftime("%d %b %Y") }}</span>
+    <h1>{{ dam.tag_number }}'s young</h1>
+    <p>Tick the young born to {{ dam.tag_number }} on this day. Untick one that was linked by mistake.</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('records.general_form', species_slug=species_slug, birth=record.b_record_id) }}">Register a young one</a>
+</div>
+<form method="post" novalidate class="form-card">
+  {{ form.hidden_tag() }}
+  <fieldset class="field check-field">
+    <legend>{{ form.young.label.text }}</legend>
+    {% set empty = "No young without a mother are registered yet. Use Register a young one." %}
+    {% include "records/_young_list.html" %}
+  </fieldset>
+  <div class="form-actions">{{ submit("Save") }}</div>
+</form>
+{% endblock %}

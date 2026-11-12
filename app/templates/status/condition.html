@@ -7,12 +7,12 @@
   <div>
     <span class="eyebrow">Condition</span>
     <h1>Pregnant animals</h1>
-    <p>Soonest due first. A birth is recorded under Add record, Breeding.</p>
+    <p>Soonest due first. When one gives birth, or loses the pregnancy, use <b>Record the outcome</b>.</p>
   </div>
 </div>
 {% if s.rows %}
   <section class="panel"><div class="table-wrap"><table class="table rows-link">
-    <thead><tr><th>Mother</th><th>Species</th><th>Due</th><th>When</th><th>Father</th></tr></thead>
+    <thead><tr><th>Mother</th><th>Species</th><th>Due</th>><th>When</th><th>Father</th><th><span class="visually-hidden">Outcome</span></th></tr></thead>
     <tbody>
       {% for row in s.rows %}
         {% set e = row.event %}
@@ -22,6 +22,7 @@
           <td class="mono">{{ e.expected_delivery_date.strftime("%d %b %Y") if e.expected_delivery_date else "Not known" }}</td>
           <td>{% if row.days is none %}—{% elif row.overdue %}<span class="badge badge-warn">{{ when(row.days) }}</span>{% else %}{{ when(row.days) }}{% endif %}</td>
           <td class="mono">{{ e.sire.tag_number if e.sire else "—" }}</td>
+          <td><a class="link-line" href="{{ url_for('records.breeding_form', species_slug=e.dam.species|lower, animal_id=e.animal_id) }}">Record the outcome</a></td>
         </tr>
       {% endfor %}
     </tbody>

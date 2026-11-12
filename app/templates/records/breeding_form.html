@@ -40,19 +40,26 @@
     </div>
 
     <div class="when" data-show-for="BIRTH NO_BIRTH">
-      {{ field(form.birth_date, max=today, help="The day she gave birth, or lost the pregnancy.") }}
-    </div>
-    <div class="when" data-show-for="BIRTH">
-      {{ field(form.females_born, type="number", min="0", max="30", inputmode="numeric",
-               help="Each one is registered as a new animal with the next tag number.") }}
-    </div>
-    <div class="when" data-show-for="BIRTH">
-      {{ field(form.males_born, type="number", min="0", max="30", inputmode="numeric",
-               help="These are registered too.") }}
+      {{ field(form.birth_date, max=today, help="The day she gave birth, lost the pregnancy, or the young were born dead.") }}
     </div>
     <div class="when" data-show-for="BIRTH NO_BIRTH">
       {{ field(form.stillborn, type="number", min="0", max="30", inputmode="numeric",
-               help="Young born dead. They are counted, not registered.") }}
+               help="Young born dead, if any. They are counted, not registered. 0 if she lost the pregnancy early.") }}
+    </div>
+  </div>
+
+  <fieldset class="field check-field when young-field" data-show-for="BIRTH">
+    <legend>{{ form.young.label.text }}</legend>
+    {% set empty = "No young " ~ species.label|lower ~ " without a mother are registered yet. Save the birth: the next page lets you register them." %}
+    {% include "records/_young_list.html" %}
+    {% if form.young.choices %}
+      <span class="help">Tick the young you registered under <b>New animal</b>. Not registered yet? Save the birth first: the next page lets you register them, and they are linked to {{ animal.tag_number }} automatically.</span>
+    {% endif %}
+  </fieldset>
+
+  <div class="form-grid">
+    <div class="when wide" data-show-for="BIRTH NO_BIRTH">
+      {{ field(form.notes, rows="2", wide=True, help="What happened, e.g. \"Aborted after the floods\" or \"Difficult birth, vet called\".") }}
     </div>
   </div>
 

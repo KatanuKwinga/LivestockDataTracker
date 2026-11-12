@@ -7,11 +7,14 @@
   <div>
     <span class="eyebrow">{{ species.label }} &middot; General</span>
     {% if animal %}
-      <h1>Edit records for {{ animal.tag_number }}</h1>
+      <h1>Edit {{ animal.tag_number }}</h1>
       <p>Correct this animal's details. Its species can't be changed: if it's wrong, register the animal again under the right species.</p>
+    {% elif birth %}
+      <h1>Register <em>{{ birth.dam.tag_number }}</em>'s young one</h1>
+      <p>Born on {{ birth.actual_delivery_date.strftime("%d %b %Y") }}{% if birth.sire %} to the father {{ birth.sire.tag_number }}{% endif %}. Saving links it to its mother. For twins, register each one.</p>
     {% else %}
-      <h1>Register a new animal</h1>
-      <p>Its basic details. Health, breeding and sales are recorded separately once it's registered.</p>
+      <h1>Register a new <em>animal</em></h1>
+      <p>Its basic details. Health, breeding and sales are recorded separately once it's registered. A young one born on the farm can be linked to its mother afterwards, under Breeding.</p>
     {% endif %}
   </div>
 </div>

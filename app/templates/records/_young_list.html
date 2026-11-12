@@ -1,0 +1,19 @@
+{# The tick list of young animals that could belong to a birth. Used by the
+   breeding form and by "Link her young". Needs: form (with .young and
+   .young_by_id) and an `empty` message for when there are none. #}
+{% if form.young.choices %}
+  <div class="check-list">
+    {% for option in form.young %}
+      {% set young = form.young_by_id[option.data] %}
+      <label class="check">
+        {{ option() }}
+        <span class="tag mono">{{ young.tag_number }}</span>
+        <span class="meta">{{ young.gender|title }} &middot;
+          {{ "born " ~ young.date_of_birth.strftime("%d %b %Y") if young.date_of_birth else "no date of birth" }}</span>
+      </label>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="help">{{ empty }}</p>
+{% endif %}
+{% for error in form.young.errors %}<span class="field-error">{{ error }}</span>{% endfor %}

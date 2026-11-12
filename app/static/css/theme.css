@@ -362,6 +362,8 @@ a.seg:focus-visible span { outline: 2px solid var(--tan); outline-offset: 3px; }
 .check-field legend { padding: 0; margin-bottom: 9px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--olive-700); }
 .check-field legend .count { margin-left: 6px; letter-spacing: 0; text-transform: none; font-weight: 400; }
 .check-tools { display: flex; gap: 8px; margin-bottom: 10px; }
+.young-field { margin: 22px 0; }                 /* breeding form: the young to link to a birth */
+.young-field .help { display: block; margin-top: 8px; }
 .check-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; max-height: 420px; overflow-y: auto; padding: 2px; }
 .field .check { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer;
   border: 1px solid var(--field-border); border-radius: 12px; background: var(--field); font-size: 14px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink); }
