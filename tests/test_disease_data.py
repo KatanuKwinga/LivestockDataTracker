@@ -80,32 +80,37 @@ def test_vaccine_coverage_is_the_share_of_the_group_in_date(rows):
     assert row(rows, "Calves", "Calf scours")["has_vaccine"] == 0
 
 
-def test_the_calendar_and_el_nino():
+def test_the_season_is_kept_for_the_calendar_but_the_rain_is_the_clue():
     assert season(pd.Timestamp("2026-04-01")) == "long rains"
     assert season(pd.Timestamp("2026-11-01")) == "short rains"
     assert season(pd.Timestamp("2026-07-01")) == "dry"
-    tidy = prepare(farm())
-    assert snapshot(tidy, pd.Timestamp("2023-11-01"))["el_nino"].eq(1).all()   # the simulated El Nino
-    assert snapshot(tidy, DAY)["el_nino"].eq(0).all()
-    # The farmer's switch only counts in El Nino months (Oct-Jan)...
-    assert snapshot(tidy, pd.Timestamp("2026-11-01"), el_nino=True)["el_nino"].eq(1).all()
-    assert snapshot(tidy, pd.Timestamp("2026-11-01"), el_nino=False)["el_nino"].eq(0).all()
-    # ...so ticked in March it changes nothing yet.
-    assert snapshot(tidy, DAY, el_nino=True)["el_nino"].eq(0).all()
-    soon = snapshot(tidy, pd.Timestamp("2026-02-15"))
-    assert soon["rains_start_soon"].eq(1).all()
+    assert "season" not in FEATURES and "month" not in FEATURES
+    assert {"rain_last_30_days", "rain_30_to_60_days_ago", "rain_next_16_days"} <= set(FEATURES)
+
+
+def daily_rain(start, end, mm):
+    days = pd.date_range(start, end)
+    return pd.DataFrame({"date": days, "rain_mm": mm})
+
+
+def test_the_rain_clues_come_from_the_farms_daily_rain():
+    # 2 mm a day in February, 10 mm a day from 1 March: a snapshot on 1 March.
+    rain = pd.concat([daily_rain("2025-12-01", "2026-02-28", 2.0), daily_rain("2026-03-01", "2026-04-30", 10.0)])
+    row = snapshot(prepare(farm(rain=rain)), DAY).iloc[0]
+    assert row["rain_last_30_days"] == pytest.approx(60.0)        # 30 dry days at 2 mm
+    assert row["rain_30_to_60_days_ago"] == pytest.approx(60.0)
+    assert row["rain_next_16_days"] == pytest.approx(160.0)       # the forecast: 16 days at 10 mm
+
+
+def test_no_rain_known_leaves_the_rain_clues_empty():
+    row = snapshot(prepare(farm()), DAY).iloc[0]
+    assert pd.isna(row["rain_last_30_days"]) and pd.isna(row["rain_next_16_days"])
 
 
 def test_build_table_takes_a_snapshot_every_fortnight():
     table = build_table(farm(), date(2026, 2, 1), date(2026, 5, 1))
     assert table["snapshot"].nunique() == 5                           # 1 Feb ... 29 Mar
     assert set(FEATURES + [LABEL]) <= set(table.columns)
-
-def test_el_nino_years_given_with_the_records_replace_the_real_history():
-    seasons = pd.DataFrame({"start": ["2025-10-01"], "end": ["2026-01-31"]})
-    tidy = prepare(farm(el_nino=seasons))
-    assert snapshot(tidy, pd.Timestamp("2025-11-01"))["el_nino"].eq(1).all()
-    assert snapshot(tidy, pd.Timestamp("2023-11-01"))["el_nino"].eq(0).all()
 
 
 def sprayed(dates):

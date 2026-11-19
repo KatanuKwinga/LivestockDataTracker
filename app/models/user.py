@@ -75,9 +75,12 @@ class Farmer(UserMixin, db.Model):
 
     farmer_id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True, nullable=False)
-    # The farmer's El Nino switch on the Disease alerts page: "El Nino is
-    # forecast for the short rains" (from the Kenya Meteorological Department).
-    el_nino_forecast = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    # Where the farm is, set on the Settings page: the weather (Open-Meteo)
+    # and the disease alerts use it. Empty until the farmer sets it: until
+    # then there is no weather, and the alerts work without the rain.
+    location_name = db.Column(db.String(100))
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
 
     user = db.relationship("User", back_populates="farmer")
     workers = db.relationship("Worker", back_populates="farmer")

@@ -8,12 +8,14 @@ import numpy as np
 import pytest
 
 import ml.alerts
+import app.routes.main as app_routes_main
 from app.extensions import db
-from app.models import Farmer, HealthRecord, HerdActivity
+from app.models import HealthRecord, HerdActivity
 from ml.alerts import farm_alerts
 from ml.disease_data import FEATURES
 from tests.test_pharmacy import as_farmer, as_worker, farm_with_worker
 from tests.test_records_general import add_animal, farm_id_of, farmer_logged_in
+from tests.test_weather import fake_weather, set_location
 
 TODAY = date.today()
 CHANCES = {"East Coast Fever": 0.62, "Gastrointestinal worms": 0.31}    # everything else 0.05
@@ -97,36 +99,63 @@ def farmer_logged_in_as_other(client):
                                         "password": "password123", "confirm_password": "password123"})
 
 
-# ------------------------------------------------------------------ El Nino
+# ------------------------------------------------------------------ the rain
 
-def test_the_farmer_turns_el_nino_on_and_off(app, client):
+def test_the_models_rain_clues_come_from_the_farms_weather(app, client):
     cattle_farm(app, client)
-    assert b"Turn on" in client.get("/alerts").data
-    page = client.post("/alerts/el-nino", follow_redirects=True).data
-    assert b"El Ni\xc3\xb1o forecast turned on." in page and b"Turn off" in page
-    assert b"Before the rains" in page and b"a month before the October rains" in page
+    bundle = fake_bundle()
+    weather = fake_weather(past_mm=5.0, forecast_mm=10.0)          # 150 mm in 30 days, 160 forecast
     with app.app_context():
-        assert Farmer.query.get(farm_id_of()).el_nino_forecast is True
-    client.post("/alerts/el-nino")
-    with app.app_context():
-        assert Farmer.query.get(farm_id_of()).el_nino_forecast is False
+        alerts = farm_alerts(farm_id_of(), weather=weather, bundle=bundle)
+    rows = bundle["model"].rows
+    assert rows["rain_last_30_days"].eq(150).all() and rows["rain_next_16_days"].eq(160).all()
+    assert alerts["rain"]["last_30_days"] == 150 and alerts["rain"]["live"] is True
 
 
-def test_the_switch_only_reaches_the_model_from_october_to_january(app, client):
+def test_without_the_weather_the_rain_is_left_unknown(app, client):
     cattle_farm(app, client)
     bundle = fake_bundle()
     with app.app_context():
-        farm_alerts(farm_id_of(), el_nino=True, today=date(2026, 11, 1), bundle=bundle)
-        assert bundle["model"].rows["el_nino"].eq(1).all()
-        farm_alerts(farm_id_of(), el_nino=True, today=date(2026, 7, 1), bundle=bundle)
-        assert bundle["model"].rows["el_nino"].eq(0).all()
+        alerts = farm_alerts(farm_id_of(), weather=None, bundle=bundle)
+    assert bundle["model"].rows["rain_last_30_days"].isna().all()
+    assert alerts["rain"] == {"live": False, "last_30_days": None, "next_16_days": None, "heavy": False}
+    assert alerts["groups"]                                         # the alerts still come
 
 
-def test_el_nino_flags_rift_valley_fever_on_the_watch_list(app, client):
+def test_a_banner_asks_for_the_farms_location(app, client):
+    cattle_farm(app, client)
+    page = client.get("/alerts").data
+    assert b"Set your farm's location to add its rainfall to the alerts" in page
+    set_location(app)
+    page = client.get("/alerts").data                               # set, but the service can't be reached
+    assert b"Set your farm's location to add" not in page and b"can't be reached right now" in page
+
+
+def test_heavy_rain_brings_the_advice_and_flags_rift_valley_fever(app, client):
     cattle_farm(app, client)
     with app.app_context():
-        flags = {w["disease"]: w["flags"] for w in farm_alerts(farm_id_of(), el_nino=True)["watch_list"]}
-    assert "El Niño forecast" in flags["Rift Valley Fever"]
+        alerts = farm_alerts(farm_id_of(), weather=fake_weather(past_mm=10.0, forecast_mm=2.0))   # 300 mm
+    assert alerts["rain"]["heavy"] and any("lumpy skin" in line for line in alerts["heavy_rain_advice"])
+    flags = {w["disease"]: w["flags"] for w in alerts["watch_list"]}
+    assert "Heavy rain" in flags["Rift Valley Fever"]
+    with app.app_context():
+        dry = farm_alerts(farm_id_of(), weather=fake_weather(past_mm=1.0, forecast_mm=1.0))
+    assert not dry["rain"]["heavy"] and dry["heavy_rain_advice"] == []
+
+
+def test_heavy_rain_is_given_as_a_reason(app, client, monkeypatch):
+    cattle_farm(app, client)
+    set_location(app)
+    monkeypatch.setattr(app_routes_main, "get_weather", lambda lat, lon: fake_weather(past_mm=10.0, forecast_mm=6.0))
+    page = client.get("/alerts").data.decode()
+    assert "Very heavy rain: 300 mm in the last 30 days" in page
+    assert "96 mm of rain forecast for the next 16 days" in page
+
+
+def test_no_vaccination_in_the_last_year_is_flagged_on_the_watch_list(app, client):
+    cattle_farm(app, client)
+    with app.app_context():
+        flags = {w["disease"]: w["flags"] for w in farm_alerts(farm_id_of())["watch_list"]}
     assert "No vaccination in the last year" in flags["Foot and Mouth Disease"]
 
 

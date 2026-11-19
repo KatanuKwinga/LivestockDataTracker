@@ -14,22 +14,26 @@ import numpy as np
 import pandas as pd
 
 from ml.groups import GROUPS, group_name, pairs
-from ml.reference import (
-        CONDITIONS, EL_NINO_MONTHS, EL_NINO_PERIODS, LONG_RAINS, SHORT_RAINS, VACCINES,
-)
+from ml.rainfall import RAIN_FEATURES, rain_features
+from ml.reference import CONDITIONS, LONG_RAINS, SHORT_RAINS, VACCINES
 
 HORIZON_DAYS = 30            # how far ahead the model looks
 EVERY_DAYS = 14              # how often a snapshot is taken
 CAP_DAYS = 365               # "never", or more than a year ago, both count as 365
-SPRAY_GAP_DAYS = 21          # a missed spray shows up as ECF / heartwarter 1-3 weeks later
+SPRAY_GAP_DAYS = 21          # a missed spraying shows up as ECF / heartwater 1-3 weeks later
 UNKNOWN_AGE_DAYS = 3 * 365   # animals with no birth date are treated as grown
 DEWORMING_NOTE = "Routine deworming"   # what a group deworming writes on each animal
 
 LABEL = "disease_within_30_days"
-CATEGORIES = ["species", "group", "disease", "season"]
-NUMBERS = ["month", "group_size", "cases_last_30_days", "cases_last_year",
-           "cases_this_time_last_year", "days_since_deworming", "days_since_spraying", "longest_spray_gap",
-           "vaccine_coverage", "has_vaccine", "el_nino", "rains_start_soon"]
+# The model's clues. The calendar (season, month) is NOT one of them: the
+# rain itself is (ml/rainfall.py), so a wet year, a dry year or a late start
+# to the rains changes the answer, and a farm outside Thika is judged by its
+# own rain. Season and month stay in the rows for the seasonal calendar the
+# model is compared with.
+CATEGORIES = ["species", "group", "disease"]
+NUMBERS = ["group_size", "cases_last_30_days", "cases_last_year",
+           "cases_this_time_last_year", "days_since_deworming", "days_since_spraying",
+           "longest_spray_gap", "vaccine_coverage", "has_vaccine"] + RAIN_FEATURES
 FEATURES = CATEGORIES + NUMBERS
 
 # Which vaccine prevents each (species, disease), if any.
@@ -46,18 +50,6 @@ def season(day):
     if day.month in SHORT_RAINS:
         return "short rains"
     return "dry"
-
-def el_nino_on(day, seasons):
-    """Is this day inside one of these El Nino seasons (a table of start, end)?"""
-    return bool(((seasons["start"] <= day) & (day <= seasons["end"])).any())
-
-
-def el_nino_switch(day, switch):
-    """The farmer's switch means "El Nino is forecast for the short rains".
-    It only counts in El Nino months (Oct-Jan): ticked in July, it changes
-    nothing until October, so the farmer can tick it as soon as the
-    forecast comes out."""
-    return int(bool(switch) and day.month in EL_NINO_MONTHS)
 
 
 # ------------------------------------------------------------ the records
@@ -100,6 +92,7 @@ def prepare(data):
     # A farm with no deaths, sales or departures yet: nobody has left.
     animals["left"] = animals["animal_id"].map(first_exit) if len(first_exit) else pd.NaT
     animals["left"] = pd.to_datetime(animals["left"])
+
     breeding = data["breeding"]
     births = pd.DataFrame({"animal_id": breeding["animal_id"],
                            "date": pd.to_datetime(breeding["actual_delivery_date"])}).dropna()
@@ -114,7 +107,6 @@ def prepare(data):
                                  "vaccine": vacc["treatment"]})
 
     groups = data["herd_activities"].copy()
-
     if "farm" not in groups:
         groups["farm"] = animals["farm"].iloc[0] if len(animals) else "farm"
     groups["date"] = pd.to_datetime(groups["date"])
@@ -123,20 +115,22 @@ def prepare(data):
     dewormings = pd.concat([groups[groups["activity"] == "DEWORMING"][["farm", "species", "date"]], own_deworm])
     sprayings = groups[groups["activity"] == "TICK_SPRAY"][["farm", "species", "date"]]
 
-    # Each farm's El Nino seasons: the simulator says which years it gave
-    # each farm; for real records (demo farm, Kwetu) it's the real history.
-    if "el_nino" in data:
-        el_nino = data["el_nino"].copy()
-        if "farm" not in el_nino:
-            el_nino["farm"] = animals["farm"].iloc[0] if len(animals) else "farm"
-    else:
-        el_nino = pd.DataFrame([(farm, start, end) for farm in animals["farm"].unique()
-                                for start, end in EL_NINO_PERIODS], columns=["farm", "start", "end"])
-    el_nino["start"], el_nino["end"] = pd.to_datetime(el_nino["start"]), pd.to_datetime(el_nino["end"])
+    # Each farm's daily rain (mm): the simulator's, Thika's history for the
+    # workbooks, or the weather service's observed + forecast rain in the app.
+    # A farm with none (the app, before the farm's location is set or when the
+    # weather service can't be reached) has its rain clues left empty: the
+    # model handles a missing value by itself.
+    rain = {}
+    if "rain" in data and len(data["rain"]):
+        table = data["rain"].copy()
+        if "farm" not in table:
+            table["farm"] = animals["farm"].iloc[0] if len(animals) else "farm"
+        table["date"] = pd.to_datetime(table["date"])
+        rain = {farm: part.set_index("date")["rain_mm"].sort_index() for farm, part in table.groupby("farm")}
 
     return {"animals": animals, "births": births, "illnesses": illnesses,
             "vaccinations": vaccinations, "dewormings": dewormings, "sprayings": sprayings,
-            "el_nino": el_nino[["farm", "start", "end"]]}
+            "rain": rain}
 
 
 def members_on(tidy, day):
@@ -159,6 +153,7 @@ def days_since(events, keys, day):
     (e.g. per farm and species), capped at a year."""
     done = events[events["date"] <= day].groupby(keys)["date"].max()
     return ((day - done).dt.days).clip(upper=CAP_DAYS)
+
 
 def longest_spray_gap(sprayings, day, window=SPRAY_GAP_DAYS):
     """Per farm and species: the longest stretch with no spraying in the
@@ -208,10 +203,9 @@ def case_counts(ill, since, until, name):
 PAIRS = pd.DataFrame(pairs(), columns=["species", "group", "disease"])
 
 
-def snapshot(tidy, day, el_nino=None, with_labels=True):
+def snapshot(tidy, day, with_labels=True):
     """The rows for one snapshot day: one per farm, group and disease the
-    group can get. `el_nino` is True/False (the farmer's switch), or None to
-    look it up in the simulated years' history."""
+    group can get."""
     members = members_on(tidy, day)
     sizes = members.groupby(["farm", "species", "group"]).size().rename("group_size").reset_index()
     rows = sizes.merge(PAIRS, on=["species", "group"])
@@ -221,13 +215,11 @@ def snapshot(tidy, day, el_nino=None, with_labels=True):
     middle = day + timedelta(days=HORIZON_DAYS // 2)
     rows["season"] = season(middle)
     rows["month"] = middle.month
-    if el_nino is None:          # training and testing: the farm's own El Nino history
-        seasons = tidy["el_nino"]
-        rows["el_nino"] = rows["farm"].map(
-            lambda farm: int(el_nino_on(middle, seasons[seasons["farm"] == farm]))).astype(int)
-    else:                        # the app: the farmer's switch
-        rows["el_nino"] = el_nino_switch(middle, el_nino)
-    rows["rains_start_soon"] = int(season(day) == "dry" and season(day + timedelta(days=HORIZON_DAYS)) != "dry")
+    for farm in rows["farm"].unique():
+        series = tidy["rain"].get(farm)
+        found = rain_features(series, day) if series is not None else dict.fromkeys(RAIN_FEATURES, np.nan)
+        for name in RAIN_FEATURES:
+            rows.loc[rows["farm"] == farm, name] = found[name]
 
     ill = tidy["illnesses"]
     year_ago = day - timedelta(days=365)
@@ -243,9 +235,11 @@ def snapshot(tidy, day, el_nino=None, with_labels=True):
         found = days_since(events, ["farm", "species"], day).rename(name).reset_index()
         rows = rows.merge(found, on=["farm", "species"], how="left")
         rows[name] = rows[name].fillna(CAP_DAYS)
+
     gap = longest_spray_gap(tidy["sprayings"], day).rename("longest_spray_gap").reset_index()
     rows = rows.merge(gap, on=["farm", "species"], how="left")
     rows["longest_spray_gap"] = rows["longest_spray_gap"].fillna(CAP_DAYS)
+
     rows["vaccine"] = [VACCINE_FOR.get((s, d)) for s, d in zip(rows["species"], rows["disease"])]
     rows["has_vaccine"] = rows["vaccine"].notna().astype(int)
     coverage = vaccine_coverage(tidy, members, day)
@@ -263,13 +257,13 @@ def snapshot(tidy, day, el_nino=None, with_labels=True):
     return rows
 
 
-def build_table(data, start, end, every_days=EVERY_DAYS, el_nino=None):
+def build_table(data, start, end, every_days=EVERY_DAYS):
     """Snapshots every `every_days` from `start`, stopping while there are
     still 30 days of records after the snapshot (so its answer is known)."""
     tidy = prepare(data)
     day, end = pd.Timestamp(start), pd.Timestamp(end)
     parts = []
     while day + timedelta(days=HORIZON_DAYS) <= end:
-        parts.append(snapshot(tidy, day, el_nino))
+        parts.append(snapshot(tidy, day))
         day += timedelta(days=every_days)
     return pd.concat(parts, ignore_index=True)

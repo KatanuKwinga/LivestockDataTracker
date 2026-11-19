@@ -10,10 +10,12 @@
   </div>
 </div>
 {% if s.animals %}
+  {% include "status/_filter_bar.html" %}
+  {% if rows %}  
   <section class="panel"><div class="table-wrap"><table class="table rows-link">
     <thead><tr><th>Animal</th><th>Species</th><th>Sex</th><th>Age</th><th>Marked</th><th>Since</th><th>Reason</th></tr></thead>    <tbody>
-      {% for a in s.animals %}
-        <tr>
+      {% for a in rows %}        
+      <tr>
           <td><a class="row-link mono" href="{{ url_for('herd.animal_detail', animal_id=a.animal_id) }}">{{ a.tag_number }}</a></td>
           <td>{{ a.species|title }}</td>
           <td>{{ a.gender|title }}</td>
@@ -25,7 +27,10 @@
       {% endfor %}
     </tbody>
   </table></div></section>
-{% else %}
+  {% else %}
+    <p class="empty">No animals match these filters. <a href="{{ url_for('main.status_detail', key=request.view_args.key) }}">Clear filters</a></p>
+  {% endif %}
+  {% else %}
   <div class="empty">No animals identified. Use Add record, Commercial, and choose <b>To sell or cull</b>.</div>
 {% endif %}
 {% endblock %}

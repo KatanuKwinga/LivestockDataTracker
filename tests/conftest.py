@@ -26,6 +26,8 @@ class TestConfig(Config):
     WTF_CSRF_ENABLED = False
     # Flask-Mail builds the email but doesn't actually send it.
     MAIL_SUPPRESS_SEND = True
+    # No calls to the weather service: tests that need weather pass their own.
+    WEATHER_ENABLED = False
     # Fixed values so tests behave the same whether or not your .env has
     # Gmail settings.
     MAIL_USERNAME = "test-sender@example.com"

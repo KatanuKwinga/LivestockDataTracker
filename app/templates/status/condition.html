@@ -11,11 +11,13 @@
   </div>
 </div>
 {% if s.rows %}
+  {% include "status/_filter_bar.html" %}
+  {% if rows %}  
   <section class="panel"><div class="table-wrap"><table class="table rows-link">
     <thead><tr><th>Mother</th><th>Species</th><th>Due</th>><th>When</th><th>Father</th><th><span class="visually-hidden">Outcome</span></th></tr></thead>
     <tbody>
-      {% for row in s.rows %}
-        {% set e = row.event %}
+      {% for row in rows %}
+      {% set e = row.event %}
         <tr>
           <td><a class="row-link mono" href="{{ url_for('herd.animal_detail', animal_id=e.animal_id) }}">{{ e.dam.tag_number }}</a></td>
           <td>{{ e.dam.species|title }}</td>
@@ -27,7 +29,10 @@
       {% endfor %}
     </tbody>
   </table></div></section>
-{% else %}
+  {% else %}
+    <p class="empty">No animals match these filters. <a href="{{ url_for('main.status_detail', key=request.view_args.key) }}">Clear filters</a></p>
+  {% endif %}
+    {% else %}
   <div class="empty">No pregnancies recorded.</div>
 {% endif %}
 {% endblock %}

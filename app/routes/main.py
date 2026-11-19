@@ -8,7 +8,9 @@ from app import status
 from app.decorators import farmer_required
 from app.extensions import db
 from app.farm import current_farm_id, still_on_farm
-from app.forms import ElNinoForm
+from app.forms import FarmSettingsForm
+from app.status_filters import filter_page, is_filtered
+from app.weather import get_weather
 from app.models import Farmer, Livestock, Worker
 from app.routes.records import SLUG_FOR
 
@@ -64,7 +66,8 @@ def dashboard():
     }
     if isinstance(current_user, Farmer):
         context["worker_count"] = Worker.query.filter_by(farmer_id=current_user.farmer_id).count()
-        context["status"] = status.all_statuses(current_farm_id())        
+        context["status"] = status.all_statuses(current_farm_id())
+        context["weather"], context["place"] = farm_weather(current_user)
         return render_template("home_farmer.html", **context)
     return render_template("home_worker.html", **context)
 
@@ -86,34 +89,57 @@ def status_detail(key):
     if key not in STATUS_PAGES:
         abort(404)
     title, work_out = STATUS_PAGES[key]
-    return render_template(f"status/{key}.html", title=title, s=work_out(current_farm_id()),
-                           unwell_days=status.UNWELL_DAYS, today=date.today(), slugs=SLUG_FOR)
+    s = work_out(current_farm_id())
+    # The tile's full list is `s`; the filtered rows are what the table shows.
+    rows, chosen, choices = filter_page(key, s, request.args)
+    return render_template(f"status/{key}.html", title=title, s=s, rows=rows, chosen=chosen,
+                           choices=choices, filtered=is_filtered(chosen),
+                           unwell_days=status.UNWELL_DAYS, today=date.today())
+
+def farm_place(farmer):
+    """Where the farm is: its name, and whether the farmer has set its
+    location. There is no default: the weather is only for a real place."""
+    return {"name": farmer.location_name, "set": farmer.latitude is not None and farmer.longitude is not None}
+
+
+def farm_weather(farmer):
+    """The weather at the farm and its place. The weather is None until the
+    location is set, or when the weather service can't be reached."""
+    place = farm_place(farmer)
+    weather = get_weather(farmer.latitude, farmer.longitude) if place["set"] else None
+    return weather, place
+
 
 @main_bp.route("/alerts")
 @farmer_required
 def disease_alerts():
     """Which diseases each group of animals is likely to get in the next 30
-    days (the model in ml/), with the reasons and what to do, plus the
-    watch list and the El Nino switch."""
+    days (the model in ml/), with the reasons and what to do, plus the farm's
+    weather, the rule-based warnings and the watch list."""
     # Imported here, not at the top: pandas and scikit-learn are only loaded
     # when someone opens this page, so the rest of the app starts quickly.
     from ml.alerts import farm_alerts
 
-    farmer = current_user
+    weather, place = farm_weather(current_user)
     try:
-        alerts = farm_alerts(current_farm_id(), el_nino=farmer.el_nino_forecast)
+        alerts = farm_alerts(current_farm_id(), weather=weather)
     except FileNotFoundError:
-        return render_template("status/alerts.html", missing=True)
+        return render_template("status/alerts.html", missing=True, weather=weather, place=place)
     return render_template("status/alerts.html", missing=False, a=alerts, today=date.today(),
-                           el_nino=farmer.el_nino_forecast, form=ElNinoForm())
+                           weather=weather, place=place)
 
 
-@main_bp.route("/alerts/el-nino", methods=["POST"])
+@main_bp.route("/settings", methods=["GET", "POST"])
 @farmer_required
-def switch_el_nino():
-    """Turn the farm's El Nino switch on or off."""
-    if ElNinoForm().validate_on_submit():
-        current_user.el_nino_forecast = not current_user.el_nino_forecast
+def farm_settings():
+    """Where the farm is: the weather and the disease alerts use it."""
+    form = FarmSettingsForm(obj=current_user)
+    if form.validate_on_submit():
+        current_user.location_name = form.location_name.data.strip()
+        # 4 decimals is about 11 m: plenty for weather, and no false precision.
+        current_user.latitude = round(form.latitude.data, 4)
+        current_user.longitude = round(form.longitude.data, 4)
         db.session.commit()
-        flash("El Niño forecast turned " + ("on." if current_user.el_nino_forecast else "off."), "success")
-    return redirect(url_for("main.disease_alerts"))
+        flash("Farm location saved. The weather and disease alerts now use it.", "success")
+        return redirect(url_for("main.farm_settings"))
+    return render_template("settings.html", form=form, place=farm_place(current_user))

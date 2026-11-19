@@ -12,7 +12,7 @@ from app.extensions import db
 from app.farm import current_farm_id
 from app.forms import CorrectStockForm, DeliveryForm, MedicineForm, UseForm
 from app.models import Farmer, PharmacyItem, StockMovement
-from app.models.pharmacy import KINDS
+from app.models.pharmacy import KINDS, UNITS
 from app.stock import add_line, undo_line
 from ml.reference import CONDITIONS
 
@@ -71,16 +71,30 @@ def locked_item(item_id):
 @pharmacy_bp.route("/")
 @login_required
 def index():
+    # The search matches the medicine's name or the disease it treats. The
+    # Out and Low warnings below always cover the whole store, not only the
+    # medicines found, so a search never hides a shortage.
     items = farm_items().order_by(PharmacyItem.kind, PharmacyItem.name).all()
-    return render_template("pharmacy/index.html", items=items,
+    q = request.args.get("q", "").strip()[:40]
+    found = [i for i in items if q.lower() in i.name.lower() or q.lower() in (i.disease or "").lower()]
+    return render_template("pharmacy/index.html", items=found, q=q, total=len(items),
                            out=[i.name for i in items if i.status == "OUT"],
                            low=[i.name for i in items if i.status == "LOW"])
 
+def suggested_medicine():
+    """What the health record's "Add to pharmacy" link fills in: the name,
+    the unit and what it treated. Only a suggestion for the form, which
+    still checks everything when it is saved; a unit that isn't one of ours
+    is ignored."""
+    suggested = {"name": request.args.get("name", "")[:100], "disease": request.args.get("treats", "")[:100]}
+    if request.args.get("unit") in UNITS:
+        suggested["unit"] = request.args["unit"]
+    return {key: value for key, value in suggested.items() if value}
 
 @pharmacy_bp.route("/new", methods=["GET", "POST"])
 @login_required
 def new_item():
-    form = MedicineForm(current_farm_id())
+    form = MedicineForm(current_farm_id(), data=suggested_medicine() if request.method == "GET" else None)
     if form.validate_on_submit():
         farmer = is_farmer()
         item = PharmacyItem(farmer_id=current_farm_id(), quantity=0, added_by=current_user.user_id, checked=farmer)

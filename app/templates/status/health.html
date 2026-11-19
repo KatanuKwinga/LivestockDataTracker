@@ -10,21 +10,28 @@
   </div>
 </div>
 {% if s.records %}
-  <section class="panel"><div class="table-wrap"><table class="table rows-link">
-    <thead><tr><th>Animal</th><th>Since</th><th>Disease</th><th>Temp.</th><th>Treatment</th></tr></thead>
+  {% include "status/_filter_bar.html" %}
+  {% if rows %}
+ <section class="panel"><div class="table-wrap"><table class="table rows-link">
+    <thead><tr><th>Animal</th><th>Species</th><th>Sex</th><th>Since</th><th>Disease</th><th>Temp.</th><th>Treatment</th></tr></thead>
     <tbody>
-      {% for r in s.records %}
-        <tr>
+      {% for r in rows %}        
+      <tr>
           <td><a class="row-link mono" href="{{ url_for('herd.animal_detail', animal_id=r.animal_id) }}">{{ r.animal.tag_number }}</a></td>
+          <td>{{ r.animal.species|title }}</td>
+          <td>{{ r.animal.gender|title }}</td>
           <td class="mono">{{ r.date.strftime("%d %b %Y") }}</td>
           <td>{{ r.disease or "—" }}</td>
           <td class="mono">{{ "%.1f"|format(r.temperature) if r.temperature else "—" }}</td>
-          <td>{{ r.treatment or "None yet" }}{% if r.dosage %} &middot; {{ r.dosage }}{% endif %}</td>
+          <td>{{ r.medicines_text or "None yet" }}</td>
         </tr>
       {% endfor %}
     </tbody>
   </table></div></section>
-{% else %}
+  {% else %}
+    <p class="empty">No animals match these filters. <a href="{{ url_for('main.status_detail', key=request.view_args.key) }}">Clear filters</a></p>
+  {% endif %}
+  {% else %}
   <div class="empty">No animal is ill or under treatment.</div>
 {% endif %}
 {% endblock %}

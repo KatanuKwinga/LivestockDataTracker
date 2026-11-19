@@ -9,10 +9,16 @@ from tests.test_records import add_worker_and_log_in_as_them
 from tests.test_records_general import add_animal, farmer_logged_in
 
 
-def illness(**changes):
+def illness(treatment="Oxytetracycline", dosage="5 ml", **changes):
+    """A goat's illness, as the health form sends it. The medicine goes in
+    the first row of the medicines table as one not in the pharmacy;
+    treatment="" leaves the table empty."""
     data = {"record_type": "ILLNESS", "date": "2026-09-14", "disease": "Pneumonia", "vaccine": "",
-            "temperature": "40.6", "treatment": "Oxytetracycline", "dosage": "5 ml",
-            "description": "Coughing, not eating"}
+            "temperature": "40.6", "description": "Coughing, not eating"}
+    if treatment:
+        amount, unit = dosage.split() if dosage else ("", "")
+        data.update({"medicines-0-item": "new", "medicines-0-name": treatment,
+                     "medicines-0-amount": amount, "medicines-0-unit": unit})
     data.update(changes)
     return data
 
@@ -69,7 +75,7 @@ def test_illness_needs_a_disease_and_treatment_needs_a_medicine(app, client):
     no_medicine = client.post(f"/records/add/goat/health/{goat}", data=illness(record_type="TREATMENT", treatment=""))
 
     assert b"Write the disease or problem" in no_disease.data
-    assert b"Write the medicine that was given" in no_medicine.data
+    assert b"Add the medicine that was given" in no_medicine.data
     assert health_records(app) == []
 
 

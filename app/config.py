@@ -49,6 +49,10 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = _engine_options(SQLALCHEMY_DATABASE_URI)
 
     
+    # Live weather from Open-Meteo (app/weather.py). Tests switch it off so
+    # they never need the internet.
+    WEATHER_ENABLED = True
+
     # Outgoing email (password reset), sent through Gmail's SMTP server.
     # Real values come from .env. Port 587 + TLS = an encrypted connection.
     MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")

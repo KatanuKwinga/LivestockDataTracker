@@ -5,10 +5,15 @@ the flock...), the model gives the chance of at least one case of each
 disease in the next 30 days. The page shows them as High, Watch or Low,
 with the reasons in plain words and the advice from ml/reference.py.
 
+The model's rain clues come from the farm's weather (app/weather.py): the
+rain of the last 60 days and the forecast for the next 16, at the location
+the farmer set. Without it (no location yet, or no answer from the weather
+service) the rain is left unknown and the model works from the rest.
+
 Two kinds of warning come from rules, not the model (the notebook, section
 15, explains why the model can't give them):
 - a gap in tick spraying in the last 3 weeks (East Coast Fever, heartwater);
-- El Nino forecast: vaccinate and prepare before the rains.
+- very heavy rain, now or forecast: prepare as for an El Nino season.
 Rare outbreak diseases (FMD, RVF, PPR...) are never predicted; they are on
 the watch list.
 
@@ -25,7 +30,7 @@ from app.models import (BreedingRecord, CommercialInfo, Departure, HealthRecord,
 from ml.disease_data import CAP_DAYS, prepare, snapshot
 from ml.disease_model import MODEL_PATH, load_bundle
 from ml.groups import GROUPS
-from ml.reference import CONDITIONS, DEWORM_EVERY_DAYS, SPRAYS_PER_WEEK
+from ml.reference import CONDITIONS, DEWORM_EVERY_DAYS, HEAVY_RAIN_MM, SPRAYS_PER_WEEK
 
 HIGH_FROM = 0.50      # used if the model file doesn't say (it does: bundle["metrics"])
 WATCH_FROM = 0.20
@@ -33,6 +38,9 @@ LONG_AGO = pd.Timestamp("1900-01-01")   # "joined" for animals with no birth or 
 # A spraying gap at least this long means a session was missed: cattle are
 # sprayed twice a week (normal gap 3-4 days), goats and sheep once (7 days).
 MISSED_SPRAY_GAP = {"CATTLE": 8, "GOAT": 11, "SHEEP": 11}
+HEAVY_FORECAST_MM = 125     # 125+ mm forecast in 16 days: heavy rain on its way
+WET_FORECAST_MM = 50        # enough forecast rain to mention as a reason
+WET_MONTH_MM = 150          # a wet 30 days, as in Kenya's main rainy months
 HERD_NAME = {"CATTLE": "cattle", "GOAT": "goats", "SHEEP": "sheep", "CHICKEN": "chickens"}
 CONDITION = {(species, c.name): c for species, conditions in CONDITIONS.items() for c in conditions}
 
@@ -95,8 +103,16 @@ def plural(n, word):
 
 
 def reasons(row, condition):
-    """Why this group is at this level, in plain words (the strongest first)."""
+    """Why this group is at this level, in plain words (the strongest first).
+    Rain is only mentioned when it is known (NaN >= a number is False)."""
     said = []
+    wet_triggers = {"rains", "rains_onset", "heavy_rain"} & set(condition.triggers)
+    if wet_triggers and row["rain_last_30_days"] >= HEAVY_RAIN_MM:
+        said.append(f"very heavy rain: {row['rain_last_30_days']:.0f} mm in the last 30 days")
+    elif wet_triggers and row["rain_last_30_days"] >= WET_MONTH_MM:
+        said.append(f"a wet month: {row['rain_last_30_days']:.0f} mm of rain in the last 30 days")
+    if wet_triggers and row["rain_next_16_days"] >= WET_FORECAST_MM:
+        said.append(f"{row['rain_next_16_days']:.0f} mm of rain forecast for the next 16 days")
     if row["cases_last_30_days"]:
         said.append(f"{plural(int(row['cases_last_30_days']), 'case')} on the farm in the last 30 days")
     if row["cases_this_time_last_year"]:
@@ -112,12 +128,6 @@ def reasons(row, condition):
         said.append(f"no animal in the group has an in-date {condition.vaccine}")
     elif row["has_vaccine"] and row["vaccine_coverage"] < 0.5:
         said.append(f"only {row['vaccine_coverage']:.0%} of the group has an in-date {condition.vaccine}")
-    if row["el_nino"]:
-        said.append("El Niño forecast")
-    if row["season"] != "dry":
-        said.append(f"the {row['season']}")
-    elif row["rains_start_soon"]:
-        said.append("the rains start within a month")
     return said[:3] or ["common in this group at this time of year"]
 
 
@@ -127,16 +137,20 @@ def level(chance, high_from, watch_from):
 
 # ------------------------------------------------------------ the page
 
-def farm_alerts(farm_id, el_nino=False, today=None, bundle=None):
-    """Everything the alerts page shows, worked out for one farm today."""
+def farm_alerts(farm_id, weather=None, today=None, bundle=None):
+    """Everything the alerts page shows, worked out for one farm today.
+    `weather` is app.weather.get_weather()'s answer for the farm, or None."""
+    from app.weather import rain_table      # here, so ml/ doesn't need Flask to import
     bundle = bundle or load_model()
     metrics = bundle.get("metrics", {})
     high_from, watch_from = metrics.get("high_from", HIGH_FROM), metrics.get("watch_from", WATCH_FROM)
-    day = pd.Timestamp(today or date.today())
+    day = pd.Timestamp(today or (weather["today"] if weather else date.today()))
 
     data = farm_data(farm_id)
+    if weather:
+        data["rain"] = rain_table(weather)
     tidy = prepare(data)
-    rows = snapshot(tidy, day, el_nino=el_nino, with_labels=False) if len(tidy["animals"]) else pd.DataFrame()
+    rows = snapshot(tidy, day, with_labels=False) if len(tidy["animals"]) else pd.DataFrame()
     species_here = sorted(set(tidy["animals"].loc[
         (tidy["animals"]["joined"] <= day) & ~(tidy["animals"]["left"] <= day), "species"]))
 
@@ -155,13 +169,24 @@ def farm_alerts(farm_id, el_nino=False, today=None, bundle=None):
             groups.append({"species": species, "group": group, "size": int(part["group_size"].iloc[0]),
                            "alerts": alerts, "worst": alerts[0]["level"] if alerts else "Low"})
 
-    return {"groups": groups, "species": species_here,
+    rain = rain_summary(rows, weather is not None)
+    return {"groups": groups, "species": species_here, "rain": rain,
             "counts": {name: sum(1 for g in groups for a in g["alerts"] if a["level"] == name)
                        for name in ("High", "Watch")},
             "spraying": spraying_warnings(rows, species_here),
-            "watch_list": watch_list(tidy, species_here, el_nino, day),
-            "el_nino_advice": el_nino_advice(species_here) if el_nino else [],
+            "watch_list": watch_list(tidy, species_here, rain["heavy"], day),
+            "heavy_rain_advice": heavy_rain_advice(species_here) if rain["heavy"] else [],
             "trained_on": bundle.get("trained_on"), "high_from": high_from, "watch_from": watch_from}
+
+
+def rain_summary(rows, live):
+    """The rain the alerts were worked out with, to show the farmer
+    (None when it isn't known)."""
+    if not live or not len(rows):
+        return {"live": False, "last_30_days": None, "next_16_days": None, "heavy": False}
+    last30, ahead = float(rows["rain_last_30_days"].iloc[0]), float(rows["rain_next_16_days"].iloc[0])
+    return {"live": True, "last_30_days": round(last30), "next_16_days": round(ahead),
+            "heavy": last30 >= HEAVY_RAIN_MM or ahead >= HEAVY_FORECAST_MM}
 
 
 def spraying_warnings(rows, species_here):
@@ -191,10 +216,11 @@ def spraying_warnings(rows, species_here):
     return said
 
 
-def watch_list(tidy, species_here, el_nino, day):
+def watch_list(tidy, species_here, heavy_rain, day):
     """Rare outbreak diseases the model doesn't predict, for the species on
-    the farm, with their advice. Flagged if El Nino raises them and it is
-    forecast, or if their vaccine hasn't been given on the farm in the last year."""
+    the farm, with their advice. Flagged if heavy rain raises them and it is
+    falling or forecast, or if their vaccine hasn't been given on the farm in
+    the last year."""
     v = tidy["vaccinations"]
     given = set(v.loc[(v["date"] <= day) & (v["date"] > day - pd.Timedelta(days=365)), "vaccine"])
     found = {}
@@ -204,18 +230,20 @@ def watch_list(tidy, species_here, el_nino, day):
                 continue
             item = found.setdefault(c.name, {"disease": c.name, "species": [], "advice": c.advice, "flags": []})
             item["species"].append(HERD_NAME[species].capitalize())
-            if el_nino and "el_nino" in c.triggers and "El Niño forecast" not in item["flags"]:
-                item["flags"].append("El Niño forecast")
+            if heavy_rain and "heavy_rain" in c.triggers and "Heavy rain" not in item["flags"]:
+                item["flags"].append("Heavy rain")
             if c.vaccine and c.vaccine not in given and "No vaccination in the last year" not in item["flags"]:
                 item["flags"].append("No vaccination in the last year")
     return sorted(found.values(), key=lambda i: (not i["flags"], i["disease"]))
 
 
-def el_nino_advice(species_here):
-    """Rule, not model: what to do before an El Nino season (vet advice)."""
-    advice = ["Vaccinate against lumpy skin disease and Rift Valley Fever a month before the October rains."]
+def heavy_rain_advice(species_here):
+    """Rule, not model: what to do in very heavy rain, as in an El Nino
+    season (vet advice)."""
+    advice = ["If the herd isn't vaccinated against lumpy skin disease and Rift Valley fever this year, "
+              "talk to your vet now: both spread fast in very wet weather."]
     for species in species_here:
         for c in CONDITIONS[species]:
-            if "el_nino" in c.triggers and c.advice and c.advice not in advice and not c.watch_only:
+            if "heavy_rain" in c.triggers and c.advice and c.advice not in advice and not c.watch_only:
                 advice.append(c.advice)
     return advice

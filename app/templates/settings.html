@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, submit %}
+{% block title %}Farm settings{% endblock %}
+{% block content %}
+<a class="back" href="{{ url_for('main.dashboard') }}"><svg class="i"><use href="#i-back"/></svg>Home</a>
+<div class="page-head">
+  <div>
+    <span class="eyebrow">Settings</span>
+    <h1>Where is your farm?</h1>
+    <p>The weather and the disease alerts use the farm's location for rainfall data.
+      {% if not place.set %}Until you set it, there is no weather and the alerts work without the rain.{% endif %}</p>
+  </div>
+</div>
+<form method="post" novalidate class="form-card">
+  {{ form.hidden_tag() }}
+  <div class="form-grid">
+    {{ field(form.location_name, help=form.location_name.description, wide=True) }}
+    {{ field(form.latitude, help=form.latitude.description, inputmode="decimal") }}
+    {{ field(form.longitude, help=form.longitude.description, inputmode="decimal") }}
+  </div>
+  <p class="locate">
+    <button type="button" class="btn btn-ghost btn-small" id="useLocation">Use my current location</button>
+    <span class="muted" id="locateStatus" role="status">Stand on the farm and press it, or copy the numbers from Google Maps: press and hold on the farm, then copy the two numbers shown.</span>
+  </p>
+  <div class="form-actions">{{ submit("Save location") }}</div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Fills in the latitude and longitude from the phone's or laptop's
+  // location. The browser asks the user's permission first; nothing is
+  // saved until they press "Save location".
+  (function () {
+    var button = document.getElementById("useLocation"), status = document.getElementById("locateStatus");
+    if (!navigator.geolocation) { button.hidden = true; return; }
+    button.addEventListener("click", function () {
+      status.textContent = "Finding your location...";
+      navigator.geolocation.getCurrentPosition(function (position) {
+        document.getElementById("latitude").value = position.coords.latitude.toFixed(4);
+        document.getElementById("longitude").value = position.coords.longitude.toFixed(4);
+        status.textContent = "Found. Check the name, then press Save location.";
+      }, function () {
+        status.textContent = "Couldn't get your location. Allow location access, or type the numbers in.";
+      }, {enableHighAccuracy: true, timeout: 15000});
+    });
+  })();
+</script>
+{% endblock %}

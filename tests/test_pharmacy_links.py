@@ -34,32 +34,38 @@ def uses(app):
                  m.health_record_id is not None, m.activity_id is not None)
                 for m in StockMovement.query.filter_by(kind="USED").order_by(StockMovement.movement_id)]
 
-
 # ------------------------------------------------------------ health records
+
+def from_pharmacy(app, name, amount, unit="", row=0):
+    """One row of the health form's medicines table, picking a pharmacy medicine."""
+    return {f"medicines-{row}-item": str(item_id(app, name)), f"medicines-{row}-amount": amount,
+            f"medicines-{row}-unit": unit}
+
 
 def test_a_health_record_can_take_medicine_from_the_pharmacy(app, client):
     pharmacy_with(client, medicine(name="Tylosin 20%"))
     goat = add_animal(app, "G001")
     page = client.get(f"/records/add/goat/health/{goat}").data
-    assert b"From the pharmacy" in page and b"Tylosin 20% (100 ml left)" in page
+    assert b"Medicines given" in page and b"Tylosin 20% (100 ml left)" in page
 
-    tylosin = item_id(app, "Tylosin 20%")
     client.post(f"/records/add/goat/health/{goat}",
-                data=illness(treatment="", dosage="", medicine=str(tylosin), medicine_amount="8"))
+                data=illness(treatment="", **from_pharmacy(app, "Tylosin 20%", "8")))
 
     assert item(app, "Tylosin 20%").quantity == 92
     assert uses(app) == [("Tylosin 20%", 8, "G001", "Pneumonia", True, True, False)]
     with app.app_context():
         record = HealthRecord.query.one()
-        # An empty Medicine given / Dose box is filled from the pharmacy.
+        # The unit comes from the pharmacy, and the summary boxes are filled.
         assert (record.disease, record.treatment, record.dosage) == ("Pneumonia", "Tylosin 20%", "8 ml")
+        assert [(m.name, m.amount, m.unit, m.item_id is not None) for m in record.medicines] == [
+            ("Tylosin 20%", 8, "ml", True)]
         assert StockMovement.query.filter_by(kind="USED").one().health_record_id == record.h_record_id
 
 
 def test_a_health_record_without_pharmacy_medicine_changes_no_stock(app, client):
     pharmacy_with(client, medicine())
     goat = add_animal(app, "G001")
-    client.post(f"/records/add/goat/health/{goat}", data=illness(medicine="", medicine_amount=""))
+    client.post(f"/records/add/goat/health/{goat}", data=illness())
     assert uses(app) == [] and item(app, "Tylosin 20%").quantity == 100
     with app.app_context():
         assert HealthRecord.query.count() == 1
@@ -68,23 +74,21 @@ def test_a_health_record_without_pharmacy_medicine_changes_no_stock(app, client)
 def test_the_amount_is_checked_and_nothing_is_saved_if_wrong(app, client):
     pharmacy_with(client, medicine())
     goat = add_animal(app, "G001")
-    tylosin = str(item_id(app, "Tylosin 20%"))
     url = f"/records/add/goat/health/{goat}"
-    assert b"Enter how much was used" in client.post(url, data=illness(medicine=tylosin, medicine_amount="")).data
-    assert b"Only 100 ml in stock" in client.post(url, data=illness(medicine=tylosin, medicine_amount="150")).data
+    no_dose = client.post(url, data=illness(treatment="", **from_pharmacy(app, "Tylosin 20%", ""))).data
+    too_much = client.post(url, data=illness(treatment="", **from_pharmacy(app, "Tylosin 20%", "150"))).data
+    assert b"Enter the dose given" in no_dose
+    assert b"Only 100 ml of Tylosin 20% in stock" in too_much
     with app.app_context():
         assert HealthRecord.query.count() == 0
     assert item(app, "Tylosin 20%").quantity == 100
 
 
 def test_a_follow_up_can_name_the_medicine_by_picking_it(app, client):
-    # "Medicine given" is needed for a follow-up treatment, unless it is
-    # picked from the pharmacy instead.
     pharmacy_with(client, medicine())
     goat = add_animal(app, "G001")
     client.post(f"/records/add/goat/health/{goat}",
-                data=illness(record_type="TREATMENT", treatment="", medicine=str(item_id(app, "Tylosin 20%")),
-                             medicine_amount="5"))
+                data=illness(record_type="TREATMENT", treatment="", **from_pharmacy(app, "Tylosin 20%", "5")))
     with app.app_context():
         assert HealthRecord.query.one().treatment == "Tylosin 20%"
 
@@ -93,8 +97,7 @@ def test_a_workers_treatment_goes_on_the_farmers_check_list(app, client):
     pharmacy_with(client, medicine())
     goat = add_animal(app, "G001")
     as_worker(client)
-    client.post(f"/records/add/goat/health/{goat}",
-                data=illness(medicine=str(item_id(app, "Tylosin 20%")), medicine_amount="6"))
+    client.post(f"/records/add/goat/health/{goat}", data=illness(treatment="", **from_pharmacy(app, "Tylosin 20%", "6")))
     assert uses(app)[0][4] is False                                   # checked=False
     as_farmer(client)
     page = client.get("/pharmacy/check").data
@@ -108,7 +111,7 @@ def test_another_farms_medicine_cannot_be_picked(app, client):
     pharmacy_with(client, medicine())
     goat = add_animal(app, "G001")
     page = client.post(f"/records/add/goat/health/{goat}",
-                       data=illness(medicine=str(item_id(app, "Theirs")), medicine_amount="5")).data
+                       data=illness(treatment="", **from_pharmacy(app, "Theirs", "5"))).data
     assert b"Not a valid choice" in page
     assert item(app, "Theirs").quantity == 100
     with app.app_context():

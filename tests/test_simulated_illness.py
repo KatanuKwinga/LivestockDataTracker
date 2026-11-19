@@ -5,7 +5,8 @@ import pandas as pd
 import pytest
 
 from ml.reference import CONDITIONS, ILLNESS_RECOVERY_DAYS, SPECIES_INFO
-from ml.simulator.farm import Animal, Farm, el_nino_seasons, run
+from ml.rainfall import thika_history
+from ml.simulator.farm import Animal, Farm, run
 from ml.simulator.herd import births_step, sales_step, starting_herd
 from ml.simulator.illness import (
     can_get, chance_per_day, daily_risk, herd_multiplier, illness_step,
@@ -78,9 +79,14 @@ def test_vaccinated_and_resistant_animals_are_at_lower_risk():
     assert daily_risk(cow(breed="Boran"), ECF, day, 1.0) == pytest.approx(
         daily_risk(cow(), ECF, day, 1.0) * 0.5)
 
+def dry_farm(**details):
+    """A farm with no rain at all, so only what a test sets changes the risk."""
+    farm = Farm(START, END, **details)
+    farm.rain_last30, farm.rain_prev30 = {}, {}
+    return farm
 
 def test_ecf_risk_rises_one_to_three_weeks_after_a_missed_spray_week():
-    farm = Farm(START, END)
+    farm = dry_farm()
     missed = date(2026, 7, 6)                                    # a Monday, dry season
     farm.missed_spray_weeks["CATTLE"] = [missed]
     assert herd_multiplier(farm, "CATTLE", ECF, missed + timedelta(days=3)) == 1.0
@@ -88,10 +94,23 @@ def test_ecf_risk_rises_one_to_three_weeks_after_a_missed_spray_week():
     assert herd_multiplier(farm, "CATTLE", ECF, missed + timedelta(days=30)) == 1.0
 
 
-def test_rains_raise_the_risk():
-    farm = Farm(START, END)
-    assert herd_multiplier(farm, "CATTLE", ECF, date(2026, 4, 15)) == 1.5   # long rains
-    assert herd_multiplier(farm, "CATTLE", ECF, date(2026, 11, 15)) == 1.3  # short rains
+def test_the_more_rain_the_higher_the_risk():
+    farm = dry_farm()
+    dry, wet, flood = date(2026, 7, 15), date(2026, 4, 15), date(2026, 11, 15)
+    farm.rain_last30 = {dry: 0.0, wet: 200.0, flood: 900.0}
+    assert herd_multiplier(farm, "CATTLE", ECF, dry) == 1.0
+    assert herd_multiplier(farm, "CATTLE", ECF, wet) == pytest.approx(1.5)     # a wet month
+    assert herd_multiplier(farm, "CATTLE", ECF, flood) == pytest.approx(2.25)  # capped at 500 mm
+
+
+def test_each_farm_lives_through_real_thika_rain_from_its_chosen_years():
+    history = thika_history()
+    farm = Farm(date(2022, 10, 1), date(2023, 9, 30), rain_years_back=25)
+    assert farm.rain[pd.Timestamp("2022-11-20")] == history[pd.Timestamp("1997-11-20")]
+    last30 = history[(history.index >= "1997-10-21") & (history.index < "1997-11-20")].sum()
+    assert farm.rain_last30[date(2022, 11, 20)] == pytest.approx(last30)
+    rain = farm.tables()["rain"]
+    assert rain["date"].min() == date(2022, 8, 2) and rain["date"].max() == date(2023, 10, 16)
 
 
 # Simulated Farm
@@ -172,24 +191,17 @@ def test_worms_hit_the_young_harder_and_peak_at_the_start_of_the_rains():
     day = date(2026, 6, 1)
     calf = daily_risk(cow(date_of_birth=day - timedelta(days=60)), WORMS, day, 1.0)
     assert calf == pytest.approx(daily_risk(cow(), WORMS, day, 1.0) * 2)
-    farm = Farm(START, END)
+    farm = dry_farm()
     farm.last_deworm["CATTLE"] = date(2026, 3, 1)                  # dewormed on time
-    assert herd_multiplier(farm, "CATTLE", WORMS, date(2026, 3, 10)) == pytest.approx(1.5 * 1.5)
-    assert herd_multiplier(farm, "CATTLE", WORMS, date(2026, 4, 10)) == pytest.approx(1.5)
+    start, later = date(2026, 3, 20), date(2026, 4, 20)
+    farm.rain_last30 = {start: 100.0, later: 100.0}
+    farm.rain_prev30 = {start: 20.0, later: 100.0}                # dry month before the first only
+    assert herd_multiplier(farm, "CATTLE", WORMS, start) == pytest.approx(1.25 * 1.5)   # the rains start
+    assert herd_multiplier(farm, "CATTLE", WORMS, later) == pytest.approx(1.25)
 
-
-def test_el_nino_and_wet_ground_raise_foot_rot():
-    farm = Farm(START, END, environment={"wet": 2.0})
-    farm.el_nino_seasons = [(date(2023, 10, 1), date(2024, 1, 31))]    # only the real one
-    normal_year = herd_multiplier(farm, "CATTLE", FOOT_ROT, date(2024, 11, 15))
-    el_nino = herd_multiplier(farm, "CATTLE", FOOT_ROT, date(2023, 11, 15))
-    assert normal_year == pytest.approx(2.0 * 1.3)               # wet farm, short rains
-    assert el_nino == pytest.approx(normal_year * 2)
-
-def test_each_farm_has_the_real_el_nino_and_others_by_chance():
-    seasons = [el_nino_seasons(date(2020, 1, 1), date(2026, 12, 31), seed) for seed in range(200)]
-    assert all((date(2023, 10, 1), date(2024, 1, 31)) in s for s in seasons)
-    others = [len(s) - 1 for s in seasons]
-    assert 0.15 < sum(others) / (200 * 7) < 0.35                 # about one year in four
-    assert all(start.month == 10 and end.month == 1 for s in seasons for start, end in s)
-    assert el_nino_seasons(date(2020, 1, 1), date(2026, 12, 31), 5) == seasons[5]   # repeatable
+def test_heavy_rain_and_wet_ground_raise_foot_rot():
+    farm = dry_farm(environment={"wet": 2.0})
+    normal, heavy = date(2025, 11, 15), date(2026, 11, 15)
+    farm.rain_last30 = {normal: 200.0, heavy: 300.0}
+    assert herd_multiplier(farm, "CATTLE", FOOT_ROT, normal) == pytest.approx(2.0 * 1.5)      # wet farm, rains
+    assert herd_multiplier(farm, "CATTLE", FOOT_ROT, heavy) == pytest.approx(2.0 * 1.75 * 2)  # + heavy rain

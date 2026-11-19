@@ -1,0 +1,36 @@
+{# The weather at the farm: now, and the next 7 days. Needs `weather`
+   (app/weather.py's answer, or None) and `place` (its name, and whether
+   the farmer has set the farm's location). #}
+<section class="panel weather-card">
+  <div class="panel-head">
+    <h3>Weather{% if place.set %} <span class="muted">{{ place.name }}</span>{% endif %}</h3>
+    <a class="link-line" href="{{ url_for('main.farm_settings') }}">{{ "Change location" if place.set else "Set your farm's location" }}</a>
+  </div>
+  {% if not place.set %}
+    <p class="muted">Set your farm's location to see its weather and forecast.</p>
+  {% elif weather %}
+    {% set now = weather.now %}
+    <div class="weather-now">
+      <span class="weather-temp mono">{{ "%.0f"|format(now.temperature) }}&deg;C</span>
+      <span><b>{{ now.words or "Now" }}</b><br>
+        <span class="muted">Humidity {{ now.humidity }}% &middot; wind {{ "%.0f"|format(now.wind) }} km/h{% if now.rain %} &middot; {{ now.rain }} mm rain in the last hour{% endif %}</span></span>
+    </div>
+    <div class="table-wrap"><table class="table weather-days">
+      <thead><tr><th>Day</th><th>Sky</th><th>Rain</th><th>Chance</th><th>Low / high</th></tr></thead>
+      <tbody>
+        {% for d in weather.forecast[:7] %}
+          <tr>
+            <td>{{ "Today" if loop.first else d.date.strftime("%a %d %b") }}</td>
+            <td>{{ d.words }}</td>
+            <td class="mono">{{ "%.0f"|format(d.rain) }} mm</td>
+            <td class="mono">{{ d.rain_chance ~ "%" if d.rain_chance is not none else "—" }}</td>
+            <td class="mono">{{ "%.0f"|format(d.low) }}&ndash;{{ "%.0f"|format(d.high) }}&deg;C</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="muted weather-source">From Open-Meteo, updated {{ now.time.strftime("%H:%M") }}. Weather models, not a station on the farm.</p>
+  {% else %}
+    <p class="muted">The weather service can't be reached right now. Check the internet connection and try again later.</p>
+  {% endif %}
+</section>

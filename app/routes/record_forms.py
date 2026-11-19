@@ -8,10 +8,10 @@ from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.farm import current_farm_id, farm_animals, get_farm_animal_or_404, suggest_tag_number
-from app.forms import (BreedingForm, DeathForm, DepartureForm, HealthForm, LinkYoungForm, ProductionForm, SaleForm,
-                       WeightForm)
-from app.models import (BreedingRecord, CommercialInfo, Departure, HealthRecord, Farmer, Livestock, MortalityRecord,
-                        ProductionData, WeightRecord)
+from app.forms import (MAX_MEDICINES, NEW_MEDICINE, BreedingForm, DeathForm, DepartureForm, HealthForm, LinkYoungForm,
+                       ProductionForm, SaleForm, WeightForm)
+from app.models import (BreedingRecord, CommercialInfo, Departure, HealthMedicine, HealthRecord, Farmer, Livestock,
+                        MortalityRecord, PharmacyItem, ProductionData, WeightRecord)
 from app.routes.herd import MARKET_WORDS
 from app.routes.records import CATEGORIES, SLUG_FOR, records_bp, species_or_404
 from app.stock import add_line
@@ -34,6 +34,10 @@ PRODUCTS = {
     "SHEEP": {"item": "Milk", "metric": "L", "label": "Milk in litres", "max": 6},
     "CHICKEN": {"item": "Eggs", "metric": "eggs", "label": "Eggs laid", "max": 2},
 }
+
+def shorten(text, longest):
+    """Text cut to fit a column, with "..." if anything was cut."""
+    return text if len(text) <= longest else text[:longest - 3] + "..."
 
 def animal_for_record(species_slug, animal_id):
     """The animal a new record is about, after three checks:
@@ -60,35 +64,44 @@ def health_form(species_slug, animal_id):
     if form.validate_on_submit():
         kind = form.record_type.data
         record = HealthRecord(animal_id=animal.animal_id, date=form.date.data, record_type=kind,
-                              temperature=form.temperature.data, dosage=form.dosage.data or None,
-                              description=form.description.data or None)
+                              temperature=form.temperature.data, description=form.description.data or None)
         if kind == "VACCINATION":
             # The model looks vaccines up by their exact name in treatment.
             record.treatment = form.vaccine.data
         else:
             # A check-up isn't about a disease, so a disease typed there is dropped.
             record.disease = form.disease.data if kind in ("ILLNESS", "TREATMENT") else None
-            record.treatment = form.treatment.data or None
-        medicine = form.chosen_medicine
-        if medicine is not None:
-            # Take it off the pharmacy stock in the same step, so nobody has
-            # to record the same treatment twice. The ledger line points to
-            # this health record; a worker's goes on the farmer's check list.
-            if kind != "VACCINATION" and not record.treatment:
-                record.treatment = medicine.name
-            if not record.dosage:
-                record.dosage = f"{form.medicine_amount.data:g} {medicine.unit}"
-            add_line(medicine, "USED", form.medicine_amount.data, form.date.data, current_user.user_id,
-                     checked=isinstance(current_user, Farmer), animal_id=animal.animal_id,
-                     remarks=record.disease or record.treatment or kind.title(), health_record=record)
+
+        # One row per medicine given. The treatment and dosage boxes keep a
+        # short summary too, so the CSV export, older pages and the group
+        # treatment check still read the record as before.
+        for given in form.given:
+            record.medicines.append(HealthMedicine(item=given["item"], name=given["name"],
+                                                   amount=given["amount"], unit=given["unit"]))
+        if form.given:
+            if kind != "VACCINATION":
+                record.treatment = shorten(", ".join(g["name"] for g in form.given), 100)
+            record.dosage = shorten(", ".join(f"{g['amount']:g} {g['unit']}" for g in form.given), 50)
+
+        # Medicines from the pharmacy come off the stock in the same step, so
+        # nobody has to record the same treatment twice. Each ledger line
+        # points to this health record; a worker's goes on the farmer's check list.
+        for given in form.given:
+            if given["item"] is not None:
+                add_line(given["item"], "USED", given["amount"], form.date.data, current_user.user_id,
+                         checked=isinstance(current_user, Farmer), animal_id=animal.animal_id,
+                         remarks=record.disease or record.treatment or kind.title(), health_record=record)
         db.session.add(record)
         db.session.commit()
         return redirect(url_for("records.record_saved", animal_id=animal.animal_id, category_key="health"))
 
     diseases = sorted({condition.name for condition in CONDITIONS[animal.species]})
+    # What the page's script needs to lock a pharmacy medicine's unit and
+    # to spot a "new" medicine the pharmacy already has.
+    stock = {key: {"name": item.name, "unit": item.unit} for key, item in form.pharmacy.items()}
     return render_template("records/health_form.html", form=form, animal=animal, species=species,
-                           species_slug=species_slug, diseases=diseases, today=date.today().isoformat())
-
+                           species_slug=species_slug, diseases=diseases, today=date.today().isoformat(),
+                           stock=stock, new_medicine=NEW_MEDICINE, max_medicines=MAX_MEDICINES)
 
 @records_bp.route("/add/<species_slug>/weight/<int:animal_id>", methods=["GET", "POST"])
 @login_required
@@ -340,9 +353,13 @@ def record_saved(animal_id, category_key):
         abort(404)
     category = next(c for c in CATEGORIES if c["key"] == category_key)
     return render_template("records/record_saved.html", animal=animal, record=record, category=category,
-                           species_slug=SLUG_FOR[animal.species])
-
-
+                           species_slug=SLUG_FOR[animal.species],
+                           to_add=not_in_pharmacy(record) if category_key == "health" else [])
+def not_in_pharmacy(record):
+    """The medicines on this health record that the pharmacy doesn't have
+    (by name, ignoring capitals), so the saved page can offer to add them."""
+    stocked = {item.name.lower() for item in PharmacyItem.query.filter_by(farmer_id=current_farm_id())}
+    return [m for m in record.medicines if m.item_id is None and m.name.lower() not in stocked]
 
 def farm_birth_or_404(b_record_id):
     """A birth record on THIS farm (through its mother), or 404."""

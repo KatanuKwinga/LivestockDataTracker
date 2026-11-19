@@ -42,7 +42,7 @@ def test_the_farmer_sees_six_statuses_and_workers_do_not(client):
     farm_with_worker(client)
     as_farmer(client)
     page = client.get("/dashboard").data
-    for label in (b">Animals<", b">Health<", b">Condition<", b">Market<", b">Pharmacy<", b">Health outlook<"):
+    for label in (b">Animals<", b">Health<", b">Pregnancies<", b">Sell or Cull<", b">Pharmacy<", b">Health outlook<"):
         assert label in page
     as_worker(client)
     assert b"status-grid" not in client.get("/dashboard").data

@@ -8,18 +8,19 @@ in the herd. This is where the reference table turns into records.
 from datetime import timedelta
 
 from ml.reference import (
-    CONDITIONS, DEWORM_OVERDUE_MULTIPLIER, EARLY_LACTATION_DAYS, EL_NINO_MULTIPLIER,
-    EL_NINO_PERIODS, FEVER_RISE, ILLNESS_RECOVERY_DAYS, LONG_RAINS,
-    OUTBREAK_BOOST_PER_CASE, OUTBREAK_DAYS, OUTBREAK_MAX_MULTIPLIER, RAINS_MULTIPLIER,
-    RAINS_ONSET_MULTIPLIER, REPEAT_TREATMENT_CHANCES, RESISTANT_BREED_MULTIPLIER,
-    SHORT_RAINS, SPECIES_INFO, SPRAY_LAPSE_MULTIPLIER, SPRAY_LAPSE_WINDOW_DAYS,
+    CONDITIONS, DEWORM_OVERDUE_MULTIPLIER, EARLY_LACTATION_DAYS, FEVER_RISE, HEAVY_RAIN_MM,
+    HEAVY_RAIN_MULTIPLIER, ILLNESS_RECOVERY_DAYS, ONSET_DRY_MM, ONSET_WET_MM,
+    OUTBREAK_BOOST_PER_CASE, OUTBREAK_DAYS, OUTBREAK_MAX_MULTIPLIER, RAIN_CAP_MM, RAIN_EFFECT,
+    RAIN_SCALE_MM, RAINS_ONSET_MULTIPLIER, REPEAT_TREATMENT_CHANCES, RESISTANT_BREED_MULTIPLIER,
+    SPECIES_INFO, SPRAY_LAPSE_MULTIPLIER, SPRAY_LAPSE_WINDOW_DAYS,
     VACCINE_UP_TO_DATE_MULTIPLIER, YEARLY_CHANCE, YOUNG_DAYS,
 )
 from ml.simulator.routines import deworming_days_overdue, vaccine_status
 
-def is_el_nino(farm, day):
-    """Is this day inside one of this farm's El Nino seasons?"""
-    return any(start <= day <= end for start, end in farm.el_nino_seasons)
+def rain_multiplier(rain_30_days):
+    """How much the last 30 days' rain raises rain-driven disease: x1 when
+    dry, x1.5 after a wet month (200 mm), up to x2.25 at 500 mm or more."""
+    return 1 + RAIN_EFFECT * min(rain_30_days, RAIN_CAP_MM) / RAIN_SCALE_MM
 
 #Chances
 def chance_per_day(condition):
@@ -48,18 +49,16 @@ def can_get(animal, condition, day):
 
 def herd_multiplier(farm, species, condition, day):
     """The part of the risk shared by the whole herd today: the farm's
-    surroundings, rains, El Nino, missed spraying, overdue deworming, and
-    how many recent cases there are."""
+    surroundings, the rain, missed spraying, overdue deworming, and how
+    many recent cases there are."""
     m = farm.environment.get(condition.environment, 1.0) if condition.environment else 1.0
+    rain, before = farm.rain_last30.get(day, 0.0), farm.rain_prev30.get(day, 0.0)
     if "rains" in condition.triggers:
-        if day.month in LONG_RAINS:
-            m *= RAINS_MULTIPLIER["long"]
-        elif day.month in SHORT_RAINS:
-            m *= RAINS_MULTIPLIER["short"]
-    if "rains_onset" in condition.triggers and day.month in (LONG_RAINS[0], SHORT_RAINS[0]):
+        m *= rain_multiplier(rain)
+    if "rains_onset" in condition.triggers and rain >= ONSET_WET_MM and before < ONSET_DRY_MM:
         m *= RAINS_ONSET_MULTIPLIER
-    if "el_nino" in condition.triggers and is_el_nino(farm, day):
-        m *= EL_NINO_MULTIPLIER
+    if "heavy_rain" in condition.triggers and rain >= HEAVY_RAIN_MM:
+        m *= HEAVY_RAIN_MULTIPLIER
     if "spray_lapse" in condition.triggers:
         earliest, latest = SPRAY_LAPSE_WINDOW_DAYS
         if any(earliest <= (day - missed).days <= latest

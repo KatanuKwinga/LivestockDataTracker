@@ -4,7 +4,8 @@ from flask import request
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileRequired
 from sqlalchemy import func
-from wtforms import (BooleanField, DateField, FloatField, IntegerField, PasswordField, RadioField, SelectField,
+from wtforms import Form as RowForm
+from wtforms import (BooleanField, DateField, FieldList, FloatField, FormField, IntegerField, PasswordField, RadioField, SelectField,
                      SelectMultipleField, StringField, SubmitField, TextAreaField, widgets)
 from wtforms.validators import (DataRequired, Email, EqualTo, InputRequired, Length, NumberRange, Optional, Regexp, ValidationError)
 
@@ -103,10 +104,19 @@ class ResetPasswordForm(FlaskForm):
     )
     submit = SubmitField("Save new password")
 
-class ElNinoForm(FlaskForm):
-    """The El Nino switch on the Disease alerts page: one button that turns
-    it on or off. A form, so the change is a POST with a CSRF token."""
-    submit = SubmitField("Change")
+class FarmSettingsForm(FlaskForm):
+    """Where the farm is, for the weather and the disease alerts. The
+    "Use my current location" button fills in the two numbers from the
+    phone's or laptop's location; they can also be copied from Google Maps."""
+    location_name = StringField("Farm or place name", validators=[DataRequired(), Length(max=100)],
+                                description="Shown with the weather, e.g. \"Kwetu Farm, Thika\".")
+    latitude = FloatField("Latitude", validators=[InputRequired("Enter the latitude."),
+                          NumberRange(-90, 90, "Latitude is between -90 and 90.")],
+                          description="Kenya runs from about -4.7 (south) to 5.0 (north).")
+    longitude = FloatField("Longitude", validators=[InputRequired("Enter the longitude."),
+                           NumberRange(-180, 180, "Longitude is between -180 and 180.")],
+                           description="Kenya runs from about 33.9 (west) to 41.9 (east).")
+    submit = SubmitField("Save location")
     
 class ImportFileForm(FlaskForm):
     """Upload box on the import page"""
@@ -155,9 +165,8 @@ def check_record_date(field, animal):
     if field.data and animal.date_of_birth and field.data < animal.date_of_birth:
         raise ValidationError(f"{animal.tag_number} was born on {animal.date_of_birth:%d %b %Y}, so the date can't be earlier.")
 
-
-def add_pharmacy_choices(form, farm_id):
-    """Fill the "From the pharmacy" box with this farm's medicines.
+def farm_pharmacy(farm_id):
+    """This farm's medicines, by id as text (the way a form sends it back).
 
     Health records and group treatments use this so a treatment can take
     the medicine off the pharmacy stock in the same step. When the form is
@@ -167,9 +176,18 @@ def add_pharmacy_choices(form, farm_id):
     query = PharmacyItem.query.filter_by(farmer_id=farm_id).order_by(PharmacyItem.name)
     if request.method == "POST":
         query = query.with_for_update()
-    form.pharmacy = {str(item.item_id): item for item in query}
+    return {str(item.item_id): item for item in query}
+
+
+def stock_label(item):
+    return f"{item.name} ({item.quantity:g} {item.unit} left)"
+
+
+def add_pharmacy_choices(form, farm_id):
+    """Fill a group treatment's "From the pharmacy" box with this farm's medicines."""
+    form.pharmacy = farm_pharmacy(farm_id)
     form.medicine.choices = [("", "Not from the pharmacy")] + [
-        (key, f"{item.name} ({item.quantity:g} {item.unit} left)") for key, item in form.pharmacy.items()]
+        (key, stock_label(item)) for key, item in form.pharmacy.items()]
 
 
 def check_pharmacy_use(form):
@@ -199,10 +217,26 @@ class PharmacyUseMixin:
         """The PharmacyItem picked, or None."""
         return self.pharmacy.get(self.medicine.data or "")
 
+NEW_MEDICINE = "new"      # the Medicine box's choice for "not in the pharmacy"
+MAX_MEDICINES = 10        # rows on one health record
 
-class HealthForm(PharmacyUseMixin, FlaskForm):   
+
+class MedicineRowForm(RowForm):
+    """One row of the health form's medicines table: which medicine, the
+    dose and its unit. A plain wtforms Form, not a FlaskForm: the health
+    form around it already carries the CSRF token."""
+    item = SelectField("Medicine", choices=[], default="")
+    name = StringField("Name of the medicine", filters=[strip_spaces], validators=[Optional(), Length(max=100)])
+    amount = FloatField("Dose", validators=[Optional()])
+    unit = SelectField("Unit", choices=[("", "Unit")] + [(u, u) for u in UNITS], default="")
+
+    def is_blank(self):
+        return not self.item.data and not self.name.data and self.amount.raw_data in (None, [], [""])
+
+
+class HealthForm(FlaskForm):
     """A health record: a new illness, a follow-up treatment, a vaccination
-    or a check-up."""
+    or a check-up, with the medicines given (as many rows as needed)."""
     record_type = RadioField("What happened?", default="ILLNESS", choices=[
         ("ILLNESS", "Fell ill"), ("TREATMENT", "Follow-up treatment"),
         ("VACCINATION", "Vaccinated"), ("CHECKUP", "Check-up"),
@@ -214,16 +248,22 @@ class HealthForm(PharmacyUseMixin, FlaskForm):
         Optional(),
         NumberRange(min=30, max=46, message="That reading isn't possible. Check it: 39.5, not 395."),
     ])
-    treatment = StringField("Medicine given", filters=[strip_spaces], validators=[Optional(), Length(max=100)])
-    dosage = StringField("Dose (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=50)])
+    medicines = FieldList(FormField(MedicineRowForm), min_entries=1, max_entries=MAX_MEDICINES)
     description = TextAreaField("Notes (optional)", filters=[strip_spaces], validators=[Optional(), Length(max=500)])
     submit = SubmitField("Save health record")
 
     def __init__(self, animal, **kwargs):
         super().__init__(**kwargs)
         self.animal = animal
-        add_pharmacy_choices(self, animal.farmer_id)
-        # Only the vaccines made for this species can be chosen.        # Only the vaccines made for this species can be chosen.
+        self.pharmacy = farm_pharmacy(animal.farmer_id)
+        self.given = []
+        # Every row offers the same list: the pharmacy's medicines with what
+        # is left, and "not in the pharmacy" for one bought for this animal.
+        self.medicine_choices = [("", "Choose a medicine"), (NEW_MEDICINE, "Not in the pharmacy: type its name")] + [
+            (key, stock_label(item)) for key, item in self.pharmacy.items()]
+        for row in self.medicines:
+            row.form.item.choices = self.medicine_choices
+        # Only the vaccines made for this species can be chosen.
         self.vaccine.choices = [("", "Choose the vaccine")] + [
             (name, name) for name, info in VACCINES.items() if animal.species in info["species"]]
 
@@ -236,13 +276,72 @@ class HealthForm(PharmacyUseMixin, FlaskForm):
         if kind in ("ILLNESS", "TREATMENT") and not self.disease.data:
             self.disease.errors.append("Write the disease or problem.")
             valid = False
-        if kind == "TREATMENT" and not self.treatment.data and self.chosen_medicine is None:            
-            self.treatment.errors.append("Write the medicine that was given.")
-            valid = False
         if kind == "VACCINATION" and not self.vaccine.data:
             self.vaccine.errors.append("Choose the vaccine that was given.")
             valid = False
-        return check_pharmacy_use(self) and valid
+        valid = self.check_medicines() and valid
+        if valid and kind == "TREATMENT" and not self.given:
+            self.medicines[0].form.item.errors.append("Add the medicine that was given.")
+            valid = False
+        return valid
+
+    def check_medicines(self):
+        """Check every row that was filled in, and collect the medicines in
+        self.given as dicts (item, name, amount, unit). Returns False, with
+        the message under the box, if a row is wrong:
+        - a pharmacy medicine is kept in one unit, so its unit can't change,
+          and the doses of it on this record must be in stock;
+        - a medicine "not in the pharmacy" needs a name and a unit, and the
+          name mustn't be one the pharmacy already has (use the stock then)."""
+        stocked = {item.name.lower(): item for item in self.pharmacy.values()}
+        needed = {}                               # item_id -> total dose on this record
+        valid = True
+        self.given = []
+        for entry in self.medicines:
+            row = entry.form
+            if row.is_blank():
+                continue
+            ok = True
+            item = self.pharmacy.get(row.item.data or "")
+            # A name typed without choosing (e.g. no JavaScript) counts as a new medicine.
+            is_new = row.item.data == NEW_MEDICINE or (not row.item.data and row.name.data)
+            if item is not None:
+                if row.unit.data and row.unit.data != item.unit:
+                    row.unit.errors.append(f"{item.name} is kept in {item.unit} in the pharmacy, "
+                                           f"so its unit is {item.unit}.")
+                    ok = False
+                row.unit.data = item.unit
+            elif is_new:
+                if not row.name.data:
+                    row.name.errors.append("Write the medicine's name.")
+                    ok = False
+                elif row.name.data.lower() in stocked:
+                    found = stocked[row.name.data.lower()]
+                    row.name.errors.append(f"{found.name} is already in the pharmacy. Choose it from the "
+                                           "list to use what is in stock.")
+                    ok = False
+                if not row.unit.data:
+                    row.unit.errors.append("Choose the unit.")
+                    ok = False
+            else:
+                row.item.errors.append("Choose the medicine, or Not in the pharmacy.")
+                ok = False
+
+            if row.amount.data is None or row.amount.data <= 0:
+                if not row.amount.errors:
+                    row.amount.errors.append("Enter the dose given.")
+                ok = False
+            elif item is not None:
+                needed[item.item_id] = needed.get(item.item_id, 0) + row.amount.data
+                if needed[item.item_id] > item.quantity:
+                    row.amount.errors.append(f"Only {item.quantity:g} {item.unit} of {item.name} in stock.")
+                    ok = False
+
+            if ok:
+                self.given.append({"item": item, "name": item.name if item else row.name.data,
+                                   "amount": row.amount.data, "unit": row.unit.data})
+            valid = valid and ok
+        return valid
 
 # The heaviest an animal of each species could weigh, in kg. Anything above
 # is a typing mistake (an extra zero), not a real animal.

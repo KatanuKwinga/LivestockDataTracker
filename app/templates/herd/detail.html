@@ -59,7 +59,7 @@
               <td>{{ r.record_type|title }}</td>
               <td>{{ r.disease or "—" }}</td>
               <td class="mono">{{ "%.1f °C"|format(r.temperature) if r.temperature is not none else "—" }}</td>
-              <td>{{ r.treatment or "—" }}{% if r.dosage %} <span class="muted">({{ r.dosage }})</span>{% endif %}</td>
+              <td>{{ r.medicines_text or "—" }}</td>
             </tr>
           {% endfor %}
         </tbody>

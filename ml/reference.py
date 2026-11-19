@@ -1,10 +1,8 @@
 #The disease reference table, written as Python.
 
 from dataclasses import dataclass
-from datetime import date
 
 # The species
-
 # normal_temp: average healthy rectal temperature in degC. A sick animal's recorded temperature is built from this.
 SPECIES_INFO = {
     "CATTLE": {"prefix": "C", "normal_temp": 38.5,
@@ -29,9 +27,9 @@ RANKS = ("common", "occasional", "rare")
 # Words a condition can list under `triggers`. Each one is a reason the
 # simulator raises that condition's risk on a given day.
 TRIGGERS = (
-    "rains",            # long or short rains
-    "rains_onset",      # the first month of each rainy season (worms hatch in warm, wet weather)
-    "el_nino",          # an El Nino season: much heavier rains than usual
+    "rains",            # rain in the last 30 days: the wetter, the higher the risk
+    "rains_onset",      # the rains starting after a dry month (worms hatch in warm, wet weather)
+    "heavy_rain",       # very heavy rain (250+ mm in 30 days), as in an El Nino season
     "spray_lapse",      # the herd missed its tick spraying
     "deworm_overdue",   # more than 90 days since deworming
     "vaccine_overdue",  # the animal's vaccine for this disease has run out
@@ -90,7 +88,7 @@ FMD = Condition("Foot and Mouth Disease", "A", "rare",
                 advice="Keep FMD vaccination every 6 months; report suspected cases to the vet.",
                 source=MERCK)
 RVF = Condition("Rift Valley Fever", "A", "rare", "Supportive care (no treatment)",
-                fever=True, triggers=("rains", "el_nino", "vaccine_overdue"),
+                fever=True, triggers=("rains", "heavy_rain", "vaccine_overdue"),
                 vaccine="RVF vaccine", death_chance=0.05, watch_only=True,
                 advice="In an El Nino year, vaccinate against RVF a month before the rains.",
                 source=f"{MERCK}; vet advice on El Nino")
@@ -159,11 +157,11 @@ CONDITIONS = {
                          "two months after calving; keep bedding dry.",
                   source=f"{MERCK}: Mastitis in large animals"),
         Condition("Foot rot", "B", "occasional", "Hoof treatment + Oxytetracycline",
-                  triggers=("rains", "el_nino"), environment="wet",
+                  triggers=("rains", "heavy_rain"), environment="wet",
                   advice=FOOT_ROT_ADVICE, source=FOOT_ROT_SOURCE),
         # Cows around calving; El Nino years (vet advice).
         Condition("Laminitis", "B", "occasional", "Hoof trimming + NSAIDs + diet change",
-                  sex="FEMALE", after_birth=True, after_birth_days=60, triggers=("el_nino",),
+                  sex="FEMALE", after_birth=True, after_birth_days=60, triggers=("heavy_rain",),
                   advice="Change cows' diet slowly around calving (no sudden grain); trim hooves; "
                          "avoid hard, rough floors.",
                   source=f"{UON}: Laminitis (founder) in cattle; vet advice on El Nino"),
@@ -176,7 +174,7 @@ CONDITIONS = {
                   source=f"{UON}: Blackquarter"),
         # Highest in wet weather, spread by biting flies; heavy in El Nino years.
         Condition("Lumpy skin disease", "A", "occasional", "Supportive care",
-                  fever=True, triggers=("rains", "el_nino", "vaccine_overdue"),
+                  fever=True, triggers=("rains", "heavy_rain", "vaccine_overdue"),
                   vaccine="Lumpy skin vaccine", death_chance=0.05,
                   advice="Vaccinate every year, a month before the rains in an El Nino year; "
                          "control biting flies.",
@@ -229,7 +227,7 @@ CONDITIONS = {
                          "isolate goats with crusty, matted skin.",
                   source=f"{MERCK}: Dermatophilosis; vet advice"),
         Condition("Foot rot", "B", "occasional", "Hoof treatment",
-                  triggers=("rains", "el_nino"), environment="wet",
+                  triggers=("rains", "heavy_rain"), environment="wet",
                   advice=FOOT_ROT_ADVICE, source=FOOT_ROT_SOURCE),
         Condition("Retained afterbirth", "B", "rare", "S-Dime + vet check",
                   fever=True, sex="FEMALE", after_birth=True),
@@ -259,7 +257,7 @@ CONDITIONS = {
                   triggers=("rains", "contagious"), max_age_days=180,
                   environment="hygiene", advice=COCCI_ADVICE, source=COCCI_SOURCE),
         Condition("Foot rot", "B", "occasional", "Hoof treatment",
-                  triggers=("rains", "el_nino"), environment="wet",
+                  triggers=("rains", "heavy_rain"), environment="wet",
                   advice=FOOT_ROT_ADVICE, source=FOOT_ROT_SOURCE),
         Condition("Mange", "B", "occasional", "Acaricide", triggers=("contagious",)),
         Condition("Diarrhoea", "B", "occasional", "Fluids",
@@ -365,20 +363,18 @@ DEWORM_EVERY_DAYS = 90
 SPRAYS_PER_WEEK = {"CATTLE": 2, "GOAT": 1, "SHEEP": 1}   # chickens are not sprayed
 
 # Kenya's rains: long rains Mar-May, short rains Oct-Dec. Kwetu is near
-# Thika (on the Murang'a-Kiambu border), which has both seasons.
+# Thika (on the Murang'a-Kiambu border), which has both seasons. The
+# simulator and the model use the rain itself (ml/rainfall.py); these months
+# only name the season and build the seasonal calendar the model must beat.
 LONG_RAINS = (3, 4, 5)
 SHORT_RAINS = (10, 11, 12)
 
-# El Nino brings heavy short rains to Kenya, October to January. The last
-# one was Oct 2023 - Jan 2024 (Kenya Meteorological Department): the real
-# history, used for the demo farm and Kwetu's records.
-EL_NINO_MONTHS = (10, 11, 12, 1)
-EL_NINO_PERIODS = ((date(2023, 10, 1), date(2024, 1, 31)),)
-# Simulated farms also get El Nino in other years, by chance, so the model
-# learns what El Nino does rather than what happened in late 2023 (assumption:
-# about one year in four). In the app, the farmer's El Nino switch says
-# "El Nino is forecast", and it counts only in EL_NINO_MONTHS.
-EL_NINO_CHANCE = 0.25
+# Kenya's rains: long rains Mar-May, short rains Oct-Dec. Kwetu is near
+# Thika (on the Murang'a-Kiambu border), which has both seasons. The
+# simulator and the model use the rain itself (ml/rainfall.py); these months
+# only name the season and build the seasonal calendar the model must beat.
+LONG_RAINS = (3, 4, 5)
+SHORT_RAINS = (10, 11, 12)
 
 # Products, as named in Kwetu's medicine log.
 SPRAY_PRODUCT = "Dip Dominex"
@@ -439,9 +435,16 @@ SALE_PRICE_KES = {"CATTLE": (150_000, 200_000), "GOAT": (7_000, 12_000), "SHEEP"
 # limited to young animals or to the days after giving birth, it is the
 # chance over that whole window instead (e.g. per calf, per birth).
 YEARLY_CHANCE = {"common": 0.20, "occasional": 0.05, "rare": 0.01}
-RAINS_MULTIPLIER = {"long": 1.5, "short": 1.3}
-RAINS_ONSET_MULTIPLIER = 1.5        # worms: extra in the first month of each rainy season
-EL_NINO_MULTIPLIER = 2.0            # El Nino diseases in an El Nino season
+# How rain raises rain-driven disease. The simulator reads each farm's real
+# daily rainfall (Thika's, 1981-2026) and looks at the last 30 days:
+RAIN_EFFECT = 0.5                   # a wet month (RAIN_SCALE_MM in 30 days) raises risk by half...
+RAIN_SCALE_MM = 200                 # ...Thika's April, its wettest month, averages about 197 mm
+RAIN_CAP_MM = 500                   # beyond this, more rain adds nothing
+RAINS_ONSET_MULTIPLIER = 1.5        # worms: extra when the rains start after a dry month
+ONSET_WET_MM = 60                   # ...60+ mm in the last 30 days...
+ONSET_DRY_MM = 40                   # ...after under 40 mm in the 30 days before
+HEAVY_RAIN_MM = 250                 # very heavy rain: 250+ mm in 30 days (3.5% of days since 1981)
+HEAVY_RAIN_MULTIPLIER = 2.0         # extra risk of the heavy-rain diseases
 EARLY_LACTATION_DAYS = 60           # "early lactation" for mastitis
 YOUNG_DAYS = 180                    # "young" for young_multiplier
 ENVIRONMENT_SPREAD = 0.6            # how much farms differ in their surroundings (lognormal sigma)

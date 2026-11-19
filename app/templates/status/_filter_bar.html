@@ -1,0 +1,50 @@
+{# The search and filters above a status table. A GET form, like the
+   Records page: the choices go into the URL, so Back and bookmarks keep
+   them. Each drop-down only appears if this page offers it (chosen has
+   the key). #}
+{% set page_key = request.view_args["key"] %}
+<form method="get" class="filter-bar" role="search">
+  <div class="search">
+    <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+    <label class="visually-hidden" for="q">Search by tag</label>
+    <input id="q" name="q" type="search" value="{{ chosen.q }}" placeholder="Search tag" autocomplete="off" maxlength="30">
+  </div>
+  {% if "species" in chosen %}
+    <label class="visually-hidden" for="species">Species</label>
+    <select id="species" name="species" class="filter-select">
+      <option value="">All species</option>
+      {% for slug, choice in choices.species.items() %}
+        <option value="{{ slug }}"{% if slug == chosen.species %} selected{% endif %}>{{ choice.label }}</option>
+      {% endfor %}
+    </select>
+  {% endif %}
+  {% if "disease" in chosen %}
+    <label class="visually-hidden" for="disease">Disease</label>
+    <select id="disease" name="disease" class="filter-select">
+      <option value="">All diseases</option>
+      {% for name in choices.diseases %}
+        <option value="{{ name }}"{% if name == chosen.disease %} selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  {% endif %}
+  {% if "sex" in chosen %}
+    <label class="visually-hidden" for="sex">Sex</label>
+    <select id="sex" name="sex" class="filter-select">
+      <option value="">Both sexes</option>
+      <option value="female"{% if chosen.sex == "female" %} selected{% endif %}>Female</option>
+      <option value="male"{% if chosen.sex == "male" %} selected{% endif %}>Male</option>
+    </select>
+  {% endif %}
+  {% if "mark" in chosen %}
+    <label class="visually-hidden" for="mark">Sell or cull</label>
+    <select id="mark" name="mark" class="filter-select">
+      <option value="">Sell and cull</option>
+      <option value="sell"{% if chosen.mark == "sell" %} selected{% endif %}>To sell</option>
+      <option value="cull"{% if chosen.mark == "cull" %} selected{% endif %}>To cull</option>
+    </select>
+  {% endif %}
+  <button type="submit" class="btn btn-ghost btn-small">Apply</button>
+  {% if filtered %}
+    <a class="link-line clear" href="{{ url_for('main.status_detail', key=page_key) }}">Clear filters</a>
+  {% endif %}
+</form>

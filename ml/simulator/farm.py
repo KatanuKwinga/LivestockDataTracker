@@ -11,8 +11,8 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
-from ml.reference import (EL_NINO_CHANCE, EL_NINO_PERIODS, FARM_VACCINES, FRAILTY_SPREAD,
-                          SPECIES_INFO)
+from ml.rainfall import FORECAST_DAYS, shifted_history
+from ml.reference import FARM_VACCINES, FRAILTY_SPREAD, SPECIES_INFO
 
 @dataclass
 class Animal:
@@ -47,7 +47,7 @@ class Animal:
 
 class Farm:
     #Holds everything the simulation creates.
-    def __init__(self, start, end, seed=42, vaccines=FARM_VACCINES, environment=None):
+    def __init__(self, start, end, seed=42, vaccines=FARM_VACCINES, environment=None, rain_years_back=0):
         # One random-number generator for the whole run: the same seed
         # always gives exactly the same farm, so results can be repeated.
         self.rng = np.random.default_rng(seed)
@@ -57,7 +57,17 @@ class Farm:
         # The farm's surroundings (ENVIRONMENTS in reference.py): 1.0 = average,
         # 2.0 = twice the usual risk of the diseases it drives. None = all average.
         self.environment = dict(environment or {})
-        self.el_nino_seasons = el_nino_seasons(start, end, seed)
+        # The farm's weather: Thika's real daily rainfall, from `rain_years_back`
+        # years earlier (0 = the real rain on these dates). From 60 days before
+        # the start, so the first days have a rain history, to 16 days after the end.
+        self.rain_years_back = rain_years_back
+        self.rain = shifted_history(start - timedelta(days=60), end + timedelta(days=FORECAST_DAYS),
+                                    rain_years_back)
+        # Rain in the 30 days before each day, and in the 30 days before those:
+        # looked up every day for every condition, so worked out once here.
+        last30 = self.rain.rolling(30).sum().shift(1)
+        self.rain_last30 = {d.date(): v for d, v in last30.items()}
+        self.rain_prev30 = {d.date(): v for d, v in last30.shift(30).items()}
         self.animals = []                        # every animal ever, alive or not
         self.tag_counts = {s: 0 for s in SPECIES_INFO}
         self.breeding = []
@@ -134,24 +144,10 @@ class Farm:
             "herd_activities": pd.DataFrame(self.herd_activities, columns=[
                 "date", "species", "activity", "product"]),
                         "weights": pd.DataFrame(self.weights, columns=["animal_id", "date", "weight"]),
-            # Not a table in the app: the farm's El Nino seasons, so the
-            # training rows can say which snapshots were in one.
-            "el_nino": pd.DataFrame(self.el_nino_seasons, columns=["start", "end"]),
+            # Not a table in the app: the farm's daily rainfall, which the app
+            # gets from the weather service instead.
+            "rain": pd.DataFrame({"date": self.rain.index.date, "rain_mm": self.rain.to_numpy()}),
         }
-
-
-def el_nino_seasons(start, end, seed):
-    """This farm's El Nino seasons (October to January). The real one,
-    2023-24, always; any other year by chance (EL_NINO_CHANCE). A separate
-    random generator, so adding this didn't change the rest of the farm."""
-    rng = np.random.default_rng([seed, 2023])
-    seasons = list(EL_NINO_PERIODS)
-    for year in range(start.year - 1, end.year + 1):
-        season = (date(year, 10, 1), date(year + 1, 1, 31))
-        if season not in seasons and rng.random() < EL_NINO_CHANCE:
-            seasons.append(season)
-    return sorted(seasons)
-
 
 def run(farm, steps):
     """The clock: call every step once for each day from start to end."""

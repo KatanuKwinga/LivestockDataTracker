@@ -1,13 +1,46 @@
 {% extends "base.html" %}
 {% from "_macros.html" import field, submit %}
+
+{# One medicine row. `row` is the form row (None for the empty copy in the
+   <template>), `prefix` the start of its box names: medicines-0, medicines-1... #}
+{% macro medicine_row(row, prefix, choices, unit_choices, new_value) %}
+  {% set chosen = row.item.data if row else "" %}
+  {% set is_new = chosen == new_value or (row and not chosen and row.name.data) %}
+  <div class="med-row" data-row>
+    <div class="med-cell{% if row and (row.item.errors or row.name.errors) %} has-error{% endif %}">
+      <label class="visually-hidden" for="{{ prefix }}-item">Medicine</label>
+      <select id="{{ prefix }}-item" name="{{ prefix }}-item" data-item>
+        {% for value, text in choices %}<option value="{{ value }}"{% if value == chosen %} selected{% endif %}>{{ text }}</option>{% endfor %}
+      </select>
+      <label class="visually-hidden" for="{{ prefix }}-name">Name of the medicine</label>
+      <input id="{{ prefix }}-name" name="{{ prefix }}-name" type="text" maxlength="100" autocomplete="off"
+             placeholder="Name of the medicine" value="{{ row.name.data or '' if row else '' }}" data-name{% if not is_new %} hidden{% endif %}>
+      {% if row %}{% for error in row.item.errors + row.name.errors %}<span class="field-error">{{ error }}</span>{% endfor %}{% endif %}
+    </div>
+    <div class="med-cell{% if row and row.amount.errors %} has-error{% endif %}">
+      <label class="visually-hidden" for="{{ prefix }}-amount">Dose</label>
+      <input id="{{ prefix }}-amount" name="{{ prefix }}-amount" type="number" step="any" min="0" inputmode="decimal"
+             placeholder="Dose, e.g. 5" value="{{ row.amount.raw_data[0] if row and row.amount.raw_data else '' }}">
+      {% if row %}{% for error in row.amount.errors %}<span class="field-error">{{ error }}</span>{% endfor %}{% endif %}
+    </div>
+    <div class="med-cell{% if row and row.unit.errors %} has-error{% endif %}">
+      <label class="visually-hidden" for="{{ prefix }}-unit">Unit</label>
+      <select id="{{ prefix }}-unit" name="{{ prefix }}-unit" data-unit>
+        {% for value, text in unit_choices %}<option value="{{ value }}"{% if row and value == row.unit.data %} selected{% endif %}>{{ text }}</option>{% endfor %}
+      </select>
+      {% if row %}{% for error in row.unit.errors %}<span class="field-error">{{ error }}</span>{% endfor %}{% endif %}
+    </div>
+    <button type="button" class="med-remove" data-remove aria-label="Remove this medicine" title="Remove this medicine">&times;</button>
+  </div>
+{% endmacro %}
 {% block title %}Health record for {{ animal.tag_number }}{% endblock %}
 {% block content %}
 <a class="back" href="{{ url_for('records.choose_animal', species_slug=species_slug, category_key='health') }}"><svg class="i"><use href="#i-back"/></svg>Back to {{ species.label|lower }}</a>
 <div class="page-head">
   <div>
     <span class="eyebrow">{{ species.label }} &middot; Health</span>
-    <h1>Health record for {{ animal.tag_number }}</h1>
-    <p>Choose what happened then fill in the form.</p>
+    <h1>Health record for <em>{{ animal.tag_number }}</em></h1>
+    <p>Choose what happened first: the boxes below change to match.</p>
   </div>
 </div>
 
@@ -17,8 +50,10 @@
   {# The four types as large buttons. They are real radio buttons, so the
      form still works without JavaScript; the script only hides boxes that
      don't apply. #}
-  <fieldset class="field segmented-field">
-    <legend>{{ form.record_type.label.text }}</legend>
+  <fieldset class="field medicines-field" id="medicines"
+            data-stock='{{ stock|tojson }}' data-new="{{ new_medicine }}"
+            data-most="{{ max_medicines }}" data-next="{{ form.medicines.last_index + 1 }}">
+     <legend>{{ form.record_type.label.text }}</legend>
     <div class="segmented">
       {% for option in form.record_type %}
         <label class="seg">{{ option() }}<span>{{ option.label.text }}</span></label>
@@ -42,19 +77,34 @@
       {{ field(form.temperature, type="number", step="0.1", inputmode="decimal",
                help="From the thermometer, e.g. 39.5. Normal is about 38.5 to 39.5 for most livestock.") }}
     </div>
-    <div class="when" data-show-for="ILLNESS TREATMENT CHECKUP">
-      {{ field(form.treatment, autocomplete="off",
-               help="The medicine's name. Needed for a follow-up treatment; leave blank if nothing was given yet.") }}
-    </div>
-    {{ field(form.dosage, autocomplete="off", help="How much was given, e.g. 5 ml.") }}
-    {% if form.pharmacy %}
-      {{ field(form.medicine, help="Pick it to take it off the stock. Medicine given and Dose then fill in themselves.") }}
-      {{ field(form.medicine_amount, type="number", step="any", min="0", inputmode="decimal",
-               help="In the medicine's unit (ml, tablets...).") }}
-    {% endif %}
-    {{ field(form.description, wide=True, rows=3,
-             help="What you noticed; not eating, coughing, limping, how long it has been ill.") }}
   </div>
+
+  {# The medicines given: one row each. A row picks a medicine from the
+     pharmacy (its unit is then fixed, and the dose comes off the stock), or
+     "Not in the pharmacy" to type one in. "Add another medicine" copies the
+     empty row kept in the <template> below. #}
+  <fieldset class="field medicines-field">
+    <legend>Medicines given <span class="opt">(needed for a follow-up treatment)</span></legend>
+    <div class="med-head" aria-hidden="true"><span>Medicine</span><span>Dose</span><span>Unit</span></div>
+    <div class="med-rows" id="medRows">
+      {% for entry in form.medicines %}{{ medicine_row(entry.form, entry.name, form.medicine_choices, entry.form.unit.choices, new_medicine) }}{% endfor %}
+    </div>
+    <button type="button" class="btn btn-ghost btn-small" id="addMedicine">+ Add another medicine</button>
+    <span class="help">A medicine from the pharmacy is taken off its stock when you save. Its unit is the one the pharmacy keeps it in.</span>
+  </fieldset>
+  {{ field(form.description, rows=3,
+           help="What you noticed: not eating, coughing, limping, how long it has been ill.") }}
+
+  <template id="medicineRow">{{ medicine_row(None, "medicines-__i__", form.medicine_choices, form.medicines[0].form.unit.choices, new_medicine) }}</template>
+
+  {# The pop-up for a unit that can't change, or a "new" medicine the pharmacy already has. #}
+  <dialog class="dialog" id="medDialog" aria-labelledby="medDialogText">
+    <p id="medDialogText"></p>
+    <div class="form-actions">
+      <button type="button" class="btn btn-olive btn-small" id="medDialogUse" hidden>Use the one in stock</button>
+      <button type="button" class="btn btn-ghost btn-small" id="medDialogClose">OK</button>
+    </div>
+  </dialog>
 
   <datalist id="disease-options">
     {% for name in diseases %}<option value="{{ name }}">{% endfor %}
@@ -68,6 +118,88 @@
 
 {% block scripts %}
 <script>
+    // The medicines table. The server puts what the script needs on the
+  // fieldset's data- attributes, so the script itself is plain JavaScript:
+  // STOCK is the pharmacy (id -> name and unit), NEW the "not in the
+  // pharmacy" choice, MOST the most rows allowed.
+  (function () {
+    var box = document.getElementById("medicines");
+    var STOCK = JSON.parse(box.dataset.stock), NEW = box.dataset.new, MOST = Number(box.dataset.most);
+    var rows = document.getElementById("medRows"), template = document.getElementById("medicineRow");
+    var dialog = document.getElementById("medDialog"), dialogText = document.getElementById("medDialogText");
+    var useButton = document.getElementById("medDialogUse"), useInStock = null;
+    var next = Number(box.dataset.next);      // the next free row number
+    
+    function popUp(text, inStock) {
+      // A real pop-up where the browser has <dialog>, else the plain alert.
+      useInStock = inStock || null;
+      useButton.hidden = !inStock;
+      if (typeof dialog.showModal !== "function") { alert(text); return; }
+      dialogText.textContent = text;
+      dialog.showModal();
+    }
+    document.getElementById("medDialogClose").addEventListener("click", function () { dialog.close(); });
+    useButton.addEventListener("click", function () {
+      if (useInStock) { useInStock(); }
+      dialog.close();
+    });
+
+    function stockWithName(name) {
+      name = name.trim().toLowerCase();
+      for (var id in STOCK) { if (STOCK[id].name.toLowerCase() === name) { return id; } }
+      return null;
+    }
+
+    function setUp(row) {
+      var item = row.querySelector("[data-item]"), name = row.querySelector("[data-name]");
+      var unit = row.querySelector("[data-unit]");
+      function chosen() {
+        // Pharmacy medicine: its unit, fixed. New one: type the name, pick the unit.
+        var medicine = STOCK[item.value];
+        name.hidden = item.value !== NEW;
+        if (medicine) { unit.value = medicine.unit; }
+        else if (item.value !== NEW) { unit.value = ""; }
+        if (item.value === NEW) { name.focus(); }
+      }
+      item.addEventListener("change", chosen);
+      unit.addEventListener("change", function () {
+        var medicine = STOCK[item.value];
+        if (medicine && unit.value !== medicine.unit) {
+          unit.value = medicine.unit;
+          popUp(medicine.name + " is kept in " + medicine.unit + " in the pharmacy, so its unit can't be changed. " +
+                "Enter the dose in " + medicine.unit + ".");
+        }
+      });
+      name.addEventListener("change", function () {
+        var id = stockWithName(name.value);
+        if (id) {
+          popUp(STOCK[id].name + " is already in stock in the pharmacy. Use what is in stock instead of " +
+                "adding it as a new medicine.", function () {
+            item.value = id; name.value = ""; chosen();
+          });
+        }
+      });
+      row.querySelector("[data-remove]").addEventListener("click", function () {
+        if (rows.querySelectorAll("[data-row]").length > 1) { row.remove(); }
+        else { item.value = ""; name.value = ""; row.querySelector("input[type=number]").value = ""; chosen(); }
+      });
+    }
+
+    rows.querySelectorAll("[data-row]").forEach(setUp);
+    document.getElementById("addMedicine").addEventListener("click", function () {
+      if (rows.querySelectorAll("[data-row]").length >= MOST) {
+        popUp("A health record can have up to " + MOST + " medicines.");
+        return;
+      }
+      var copy = document.createElement("div");
+      copy.innerHTML = template.innerHTML.replace(/__i__/g, String(next++));
+      var row = copy.firstElementChild;
+      rows.appendChild(row);
+      setUp(row);
+      row.querySelector("[data-item]").focus();
+    });
+  })();
+
   // Show only the boxes for the chosen type. Hidden boxes are still sent,
   // but the server ignores the ones that don't apply.
   (function () {

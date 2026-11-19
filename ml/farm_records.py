@@ -9,6 +9,7 @@ The animal's tag is used as its id.
 from pathlib import Path
 
 import pandas as pd
+from ml.rainfall import thika_rain_table
 
 ROOT = Path(__file__).resolve().parent.parent
 DEMO_WORKBOOK = ROOT / "seeds" / "data" / "Demo_Farm_Records.xlsx"
@@ -37,6 +38,7 @@ def demo_farm(path=DEMO_WORKBOOK):
     h = sheets["Health records"]
     g = sheets["Group treatments"]
     return {
+        "rain": thika_rain_table(),          # both farms are near Thika: its real daily rain
         "livestock": _animals(a, pd.to_datetime(a["Tag"].map(bought)).fillna(pd.to_datetime(a["Date of birth"]))),
         "breeding": pd.DataFrame({"animal_id": births["Mother (tag)"],
                                   "actual_delivery_date": pd.to_datetime(births["Birth or loss date"])}),
@@ -89,6 +91,7 @@ def kwetu(path=KWETU_WORKBOOK):
     groups = pd.DataFrame({"date": pd.to_datetime(g["Date"]), "species": g["Species"].map(KWETU_GROUP_SPECIES),
                            "activity": g["Activity"].map(ACTIVITY)}).explode("species").dropna(subset=["species"])
     return {
+        "rain": thika_rain_table(),          # both farms are near Thika: its real daily rain    
         "livestock": _animals(a, pd.to_datetime(a["Joined the records"])),
         "breeding": pd.DataFrame({"animal_id": b["Mother (tag)"], "actual_delivery_date": pd.to_datetime(b["Date"])}),
         "health": pd.DataFrame({"animal_id": h["Tag"], "date": pd.to_datetime(h["Date"]),

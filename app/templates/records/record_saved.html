@@ -39,7 +39,7 @@
       <div><dt>Type</dt><dd>{{ record.record_type|title }}</dd></div>
       {% if record.disease %}<div><dt>Disease</dt><dd>{{ record.disease }}</dd></div>{% endif %}
       {% if record.record_type == "VACCINATION" %}<div><dt>Vaccine</dt><dd>{{ record.treatment }}</dd></div>
-      {% elif record.treatment %}<div><dt>Medicine</dt><dd>{{ record.treatment }}</dd></div>{% endif %}
+      {% elif record.medicines_text %}<div><dt>Medicine{{ "s" if record.medicines|length > 1 }}</dt><dd>{{ record.medicines_text }}</dd></div>{% endif %}
       {% if record.temperature is not none %}<div><dt>Temperature</dt><dd>{{ "%.1f °C"|format(record.temperature) }}</dd></div>{% endif %}
     {% endif %}
   </dl>
@@ -55,6 +55,22 @@
   {% endif %}
   <a class="link-line" href="{{ url_for('herd.animal_detail', animal_id=animal.animal_id) }}">Open {{ animal.tag_number }}'s full record</a>
 </section>
+
+{# Medicines given that the pharmacy doesn't have yet: offer to add them,
+   with the name, unit and what it treated filled in. #}
+{% if to_add %}
+  <section class="panel add-to-pharmacy">
+    <div class="panel-head"><h3>Add to the farm's pharmacy?</h3></div>
+    <p class="muted">{{ "This medicine isn't" if to_add|length == 1 else "These medicines aren't" }} in the pharmacy yet.
+      Add {{ "it" if to_add|length == 1 else "them" }} to keep track of what is left on the shelf. This step is optional.</p>
+    <ul>
+      {% for m in to_add %}
+        <li><span><b>{{ m.name }}</b> <span class="muted">({{ "%g"|format(m.amount) }} {{ m.unit }} given)</span></span>
+          <a class="btn btn-ghost btn-small" href="{{ url_for('pharmacy.new_item', name=m.name, unit=m.unit, treats=record.disease or '') }}">Add to pharmacy</a></li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endif %}
 
 <h2 class="section-title">What next?</h2>
 <div class="tiles">

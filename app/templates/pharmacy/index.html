@@ -17,6 +17,17 @@
   {% if out %}<div class="flash flash-danger">Out: {{ out|join(", ") }}.</div>{% endif %}
   {% if low %}<div class="flash flash-warning">Low: {{ low|join(", ") }}.</div>{% endif %}
 </div>
+{% if total %}
+  <form method="get" class="filter-bar" role="search">
+    <div class="search">
+      <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+      <label class="visually-hidden" for="q">Search medicines</label>
+      <input id="q" name="q" type="search" value="{{ q }}" placeholder="Search medicine or disease" autocomplete="off" maxlength="40">
+    </div>
+    <button type="submit" class="btn btn-ghost btn-small">Search</button>
+    {% if q %}<a class="link-line clear" href="{{ url_for('pharmacy.index') }}">Clear search</a>{% endif %}
+  </form>
+{% endif %}
 
 {% if items %}
   <section class="panel">
@@ -36,6 +47,8 @@
       </table>
     </div>
   </section>
+{% elif q %}
+  <p class="empty">No medicine matches &ldquo;{{ q }}&rdquo;. <a href="{{ url_for('pharmacy.index') }}">Clear search</a></p>
 {% else %}
   <div class="empty">No medicines yet.</div>
 {% endif %}

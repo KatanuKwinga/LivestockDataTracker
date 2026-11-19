@@ -80,8 +80,12 @@ svg.i { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-widt
 .btn-sand:hover { background: var(--sand-soft); }
 .btn-olive { background: var(--olive-800); color: var(--sand-soft); }
 .btn-olive:hover { background: var(--olive-700); }
-.btn-ghost { border-color: var(--line); color: var(--ink); background: transparent; }
-.btn-ghost:hover { border-color: var(--olive-500); }
+.btn-ghost {
+  background: var(--sand); border-color: var(--tan); color: var(--olive-900);
+  box-shadow: 0 1px 2px rgba(34, 42, 27, .12);
+}
+.btn-ghost:hover { background: #cbb98c; border-color: var(--olive-500); }
+.btn-ghost:active { transform: translateY(1px); box-shadow: none; }
 .btn-ghost-dark { border-color: var(--line-dark); color: var(--sand-soft); background: transparent; }
 .btn-ghost-dark:hover { border-color: var(--sand); }
 .btn-small { padding: 8px 14px; font-size: 11.5px; gap: 8px; }
@@ -464,3 +468,40 @@ a.seg:focus-visible span { outline: 2px solid var(--tan); outline-offset: 3px; }
 .alerts-switch p { margin-top: 6px; max-width: 640px; }
 .alerts-rules ul { margin: 6px 0 0 18px; padding: 0; }
 .alerts-summary { display: flex; gap: 8px; margin: 0 0 14px; }
+
+/* Weather card and farm settings */
+.weather-now { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.weather-temp { font-size: 34px; line-height: 1; }
+.weather-days td, .weather-days th { white-space: nowrap; }
+.weather-source { font-size: 12.5px; margin-top: 10px; }
+.locate { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 4px 0 18px; }
+.rain-facts { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 6px 0 0; }
+
+/* Health form: the medicines table (one row per medicine given) */
+.medicines-field { border: 0; margin: 0; padding: 0; min-width: 0; gap: 10px; }
+.medicines-field legend { padding: 0; margin-bottom: 9px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--olive-700); }
+.medicines-field legend .opt { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink-soft); margin-left: 4px; }
+.med-head, .med-row { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(90px, .8fr) minmax(110px, .9fr) 40px; gap: 10px; align-items: start; }
+.med-head span { font-size: 12px; color: var(--ink-soft); }
+.med-rows { display: grid; gap: 10px; }
+.med-cell { display: grid; gap: 6px; min-width: 0; }
+.med-cell.has-error input, .med-cell.has-error select { border-color: var(--bad); }
+.med-remove { height: 48px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--ink-soft); font-size: 20px; cursor: pointer; }
+.med-remove:hover { border-color: var(--bad); color: var(--bad); }
+.medicines-field #addMedicine { justify-self: start; }
+@media (max-width: 640px) {
+  .med-head { display: none; }
+  .med-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .med-row .med-cell:first-child { grid-column: 1 / -1; }
+}
+
+/* Pop-up messages (e.g. "already in stock in the pharmacy") */
+.dialog { max-width: 440px; border: 1px solid var(--line); border-radius: 18px; padding: 22px 24px; background: var(--card); color: var(--ink); }
+.dialog::backdrop { background: rgba(26, 32, 21, .45); }
+.dialog p { margin: 0 0 16px; line-height: 1.5; }
+.dialog .form-actions { justify-content: flex-end; }
+
+/* The saved page's offer to add new medicines to the pharmacy */
+.add-to-pharmacy { margin: 0 0 22px; }
+.add-to-pharmacy ul { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.add-to-pharmacy li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }

@@ -27,7 +27,7 @@ def farms():
 def test_one_farm_has_every_table_with_database_columns():
     tables = simulate_farm(end=END, years=1, seed=1)
     assert set(tables) == {"livestock", "breeding", "mortality", "commercial",
-                           "health", "herd_activities", "weights", "el_nino"}
+                           "health", "herd_activities", "weights", "rain"}
     for name, columns in TABLES.items():
         assert list(tables[name].columns) == columns
 
@@ -87,3 +87,7 @@ def test_simulate_many_gives_each_farm_its_own_plan_and_surroundings():
     assert set(tables["livestock"]["farm"]) == {"farm01", "farm02"}
     assert tables["livestock"]["animal_id"].is_unique
     assert (about[["wet", "ticks", "hygiene"]] > 0).all().all()
+    # Each farm lives through its own stretch of Thika's real rain.
+    assert about["weather from"].notna().all()
+    rain = tables["rain"].pivot(index="date", columns="farm", values="rain_mm")
+    assert not rain["farm01"].equals(rain["farm02"])

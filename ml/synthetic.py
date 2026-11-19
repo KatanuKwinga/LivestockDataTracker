@@ -16,6 +16,9 @@ from ml.simulator.weights import weighing_step
 STEPS = [births_step, sales_step, vaccination_step, deworming_step,
          spraying_step, illness_step, weighing_step]
 
+# A farm running 2022-2026 can borrow rain back to 1982 (the record starts in 1981).
+MAX_RAIN_YEARS_BACK = 40
+
 # Vaccination plans for the simulated farms (the app's Vaccination plan page).
 FARM_PLANS = {
     "kwetu": FARM_VACCINES,                 # CCPP, FMD, lumpy skin
@@ -24,13 +27,14 @@ FARM_PLANS = {
 }
 
 
-def simulate_farm(end=None, years=2, seed=42, vaccines=FARM_VACCINES, environment=None):
+def simulate_farm(end=None, years=2, seed=42, vaccines=FARM_VACCINES, environment=None, rain_years_back=0):
     """Simulate one farm for `years` years ending on `end` (default today).
+    Its weather is Thika's real rainfall from `rain_years_back` years earlier.
     Returns a dict of DataFrames: livestock, breeding, mortality, commercial,
-    health, herd_activities, weights."""
+    health, herd_activities, weights, rain."""
     end = end or date.today()
     farm = Farm(end - timedelta(days=365 * years), end, seed=seed, vaccines=vaccines,
-                environment=environment)
+                environment=environment, rain_years_back=rain_years_back)
     starting_herd(farm)
     run(farm, STEPS)
     return farm.tables()
@@ -64,8 +68,11 @@ def random_farm(seed):
     environment = {name: round(float(rng.lognormal(-ENVIRONMENT_SPREAD ** 2 / 2, ENVIRONMENT_SPREAD)), 2)
                    for name in ENVIRONMENTS}
     plan_name = rng.choice(list(FARM_PLANS))
-    return str(plan_name), FARM_PLANS[str(plan_name)], environment
-
+    # Which stretch of Thika's real weather the farm lives through: its dates
+    # stay 2022-2026, but the rain comes from 0 to 40 years earlier, so ten
+    # farms see ten different runs of wet and dry years (1997's El Nino included).
+    rain_years_back = int(rng.integers(0, MAX_RAIN_YEARS_BACK + 1))
+    return str(plan_name), FARM_PLANS[str(plan_name)], environment, rain_years_back
 
 def simulate_many(farms=10, end=None, years=3, seed=100):
     """Simulate `farms` different farms and stack their tables, like
@@ -75,8 +82,8 @@ def simulate_many(farms=10, end=None, years=3, seed=100):
     combined, about = {}, []
     for number in range(farms):
         name = f"farm{number + 1:02d}"
-        plan, vaccines, environment = random_farm(seed + number)
-        tables = simulate_farm(end, years, seed + number, vaccines, environment)
+        plan, vaccines, environment, rain_years_back = random_farm(seed + number)
+        tables = simulate_farm(end, years, seed + number, vaccines, environment, rain_years_back)
         offset = (number + 1) * 100_000
         for table_name, df in tables.items():
             df = df.copy()
@@ -85,7 +92,9 @@ def simulate_many(farms=10, end=None, years=3, seed=100):
                     df[column] = df[column] + offset
             df.insert(0, "farm", name)
             combined.setdefault(table_name, []).append(df)
-        about.append({"farm": name, "vaccination plan": plan, **environment})
+        about.append({"farm": name, "vaccination plan": plan, **environment,
+                      "weather from": f"{end.year - years - rain_years_back}-{end.year - rain_years_back}"
+                      if end else rain_years_back})
     tables = {name: pd.concat(parts, ignore_index=True) for name, parts in combined.items()}
     return tables, pd.DataFrame(about).set_index("farm")
 

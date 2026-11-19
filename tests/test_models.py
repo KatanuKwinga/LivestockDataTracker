@@ -23,7 +23,7 @@ def test_all_ten_tables_exist(app_ctx):
     expected = {
         "users", "farmers", "workers", "livestock", "weight_records", "health_records",
             "breeding_record", "production_data", "commercial_info", "mortality_records", "departures", "herd_activities",
-            "pharmacy_items", "stock_movements",    }
+            "pharmacy_items", "stock_movements", "health_medicines"   }
     assert expected == set(db.metadata.tables)
 
 

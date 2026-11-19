@@ -7,8 +7,8 @@
 <div class="page-head">
   <div>
     <span class="eyebrow">Disease alerts{% if not missing %} &middot; {{ today.strftime("%d %b %Y") }}{% endif %}</span>
-    <h1>Disease <em>alerts</em></h1>
-    <p>For each group of animals, the diseases likely in the next 30 days, why, and what to do. Set up for farms in central Kenya (Thika area).</p>
+    <h1>Disease alerts</h1>
+    <p>For each group of animals, the diseases likely in the next 30 days, why, and what to do, using the farm's records and its rain.</p>
   </div>
 </div>
 
@@ -16,24 +16,34 @@
   <div class="empty">The disease model hasn't been trained yet. Run the notebook <span class="mono">notebooks/disease_model.ipynb</span> once.</div>
 {% else %}
 
-  {# The El Nino switch: the farmer sets it from the Kenya Met Department forecast. #}
-  <section class="panel alerts-switch">
-    <div>
-      <h3>El Niño forecast: <span class="badge badge-{{ 'warn' if el_nino else 'good' }}">{{ "On" if el_nino else "Off" }}</span></h3>
-      <p class="muted">Turn it on when the Kenya Meteorological Department forecasts El Niño. It counts for the October to January rains, so you can turn it on as soon as the forecast comes out.</p>
+  {# The rain the alerts were worked out with, or why there is none. #}
+  {% if not place.set %}
+    <div class="flashes">
+      <div class="flash flash-info">Set your farm's location to add its rainfall to the alerts: the rain of the last two months and the forecast for the next 16 days. Until then, the alerts are worked out without the rain.&nbsp;<a href="{{ url_for('main.farm_settings') }}">Set location</a></div>
     </div>
-    <form method="post" action="{{ url_for('main.switch_el_nino') }}">
-      {{ form.hidden_tag() }}
-      <button type="submit" class="btn btn-ghost btn-small">{{ "Turn off" if el_nino else "Turn on" }}</button>
-    </form>
-  </section>
+  {% elif not a.rain.live %}
+    <div class="flashes">
+      <div class="flash flash-warning">The weather service can't be reached right now, so these alerts are worked out without {{ place.name }}'s rain. Try again later.</div>
+    </div>
+  {% else %}
+    <section class="panel alerts-switch">
+      <div>
+        <h3>Rain at {{ place.name }}</h3>
+        <p class="rain-facts">
+          <span><b class="mono">{{ a.rain.last_30_days }} mm</b> in the last 30 days</span>
+          <span><b class="mono">{{ a.rain.next_16_days }} mm</b> forecast for the next 16 days</span>
+        </p>
+      </div>
+      <a class="link-line" href="{{ url_for('main.farm_settings') }}">Change location</a>
+    </section>
+  {% endif %}
 
   {# Warnings from rules, not the model. #}
-  {% if a.el_nino_advice or a.spraying %}
+  {% if a.heavy_rain_advice or a.spraying %}
     <div class="flashes alerts-rules">
-      {% if a.el_nino_advice %}
-        <div class="flash flash-warning"><div><b>El Niño forecast. Before the rains:</b>
-          <ul>{% for line in a.el_nino_advice %}<li>{{ line }}</li>{% endfor %}</ul></div></div>
+      {% if a.heavy_rain_advice %}
+        <div class="flash flash-warning"><div><b>Very heavy rain, now or forecast. Prepare as for an El Niño season:</b>
+          <ul>{% for line in a.heavy_rain_advice %}<li>{{ line }}</li>{% endfor %}</ul></div></div>
       {% endif %}
       {% for w in a.spraying %}
         <div class="flash flash-{{ 'warning' if w.tone == 'warn' else 'info' }}">{{ w.text }}</div>
@@ -65,7 +75,7 @@
                     <td>{{ x.disease }}</td>
                     <td><span class="badge badge-{{ BADGE[x.level] }}">{{ x.level }}</span></td>
                     <td class="mono">{{ "%.0f"|format(x.chance * 100) }}%</td>
-                    {# Capital first letter only: |capitalize would lowercase "El Niño" and vaccine names. #}
+                    {# Capital first letter only: |capitalize would lowercase vaccine names. #}
                     {% set why = x.reasons|join("; ") %}
                     <td>{{ why[:1]|upper }}{{ why[1:] }}</td>
                     <td>{{ x.advice or "Watch the group and call the vet if you see signs." }}</td>
@@ -80,6 +90,8 @@
       {% endfor %}
     </div>
   {% endif %}
+
+  <div style="margin-top:16px">{% include "_weather.html" %}</div>
 
   {% if a.watch_list %}
     <section class="panel" style="margin-top:16px">
@@ -103,9 +115,7 @@
 
   <p class="muted" style="margin-top:16px">
     The chance is of at least one case in the group within 30 days. High is {{ "%.0f"|format(a.high_from * 100) }}% or more,
-    Watch {{ "%.0f"|format(a.watch_from * 100) }}% or more. In testing, about 7 in 10 High alerts were followed by the disease.
-    It is a guide to where to look first, not a diagnosis. The alerts use your records: unrecorded cases,
-    dewormings or sprayings make them less accurate.{% if a.trained_on %} Model trained {{ a.trained_on }}.{% endif %}
+    Watch {{ "%.0f"|format(a.watch_from * 100) }}% or more. 
   </p>
 {% endif %}
 {% endblock %}
